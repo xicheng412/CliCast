@@ -19,6 +19,10 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   return response.json();
 }
 
+export interface TerminalSession extends Session {
+  wsUrl: string;
+}
+
 export const api = {
   // Config
   async getConfig(): Promise<Config> {
@@ -60,8 +64,8 @@ export const api = {
     return response.data;
   },
 
-  async createSession(path: string): Promise<Session> {
-    const response = await fetchJson<{ success: true; data: Session }>(`${API_BASE}/sessions`, {
+  async createSession(path: string): Promise<TerminalSession> {
+    const response = await fetchJson<{ success: true; data: TerminalSession }>(`${API_BASE}/sessions`, {
       method: 'POST',
       body: JSON.stringify({ path }),
     });
@@ -81,14 +85,14 @@ export const api = {
     return response.data;
   },
 
-  async sendMessage(sessionId: string, message: string): Promise<void> {
-    await fetchJson<{ success: true }>(`${API_BASE}/sessions/${sessionId}/message`, {
-      method: 'POST',
-      body: JSON.stringify({ message }),
-    });
+  async getWebSocketUrl(sessionId: string): Promise<string> {
+    const response = await fetchJson<{ success: true; data: { wsUrl: string; sessionId: string } }>(
+      `${API_BASE}/sessions/${sessionId}/ws`
+    );
+    return response.data.wsUrl;
   },
 
-  // SSE Stream
+  // SSE Stream (legacy, kept for reference)
   createEventSource(sessionId: string): EventSource {
     return new EventSource(`${API_BASE}/sessions/${sessionId}/stream`);
   },

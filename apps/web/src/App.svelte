@@ -4,14 +4,18 @@
   import { api } from './stores/api.js';
   import FileManager from './lib/FileManager.svelte';
   import ConfigPanel from './lib/ConfigPanel.svelte';
-  import ChatInterface from './lib/ChatInterface.svelte';
+  import Terminal from './lib/Terminal.svelte';
   import type { Session, Config } from './stores/types';
 
   let activeTab = $state<'files' | 'config'>('files');
   let initialized = $state(false);
 
   // Local state for reactive values - updated via $effect after init
-  let currentSessionsState = $state({ sessions: [], activeSessionId: null as string | null });
+  let currentSessionsState = $state({
+    sessions: [] as Session[],
+    activeSessionId: null as string | null,
+    activeSessionWsUrl: null as string | null,
+  });
   let currentConfigState = $state<Config | null>(null);
 
   function getActiveSession(): Session | null {
@@ -21,6 +25,7 @@
   }
 
   const activeSession = $derived(getActiveSession());
+  const activeWsUrl = $derived(currentSessionsState.activeSessionWsUrl);
 
   onMount(async () => {
     await Promise.all([
@@ -37,7 +42,12 @@
   // Sync store changes to local state after initialization
   $effect(() => {
     if (initialized) {
-      currentSessionsState = $state.snapshot($sessionsStore);
+      const snapshot = $state.snapshot($sessionsStore);
+      currentSessionsState = {
+        sessions: snapshot.sessions,
+        activeSessionId: snapshot.activeSessionId,
+        activeSessionWsUrl: snapshot.activeSessionWsUrl,
+      };
     }
   });
 
@@ -47,12 +57,20 @@
     }
   });
 
-  function handleSetActiveSession(id: string) {
-    sessionsStore.setActiveSession(id);
+  async function handleSetActiveSession(id: string) {
+    // When selecting an existing session, fetch its WebSocket URL
+    const wsUrl = await sessionsStore.getWebSocketUrl(id);
+    sessionsStore.setActiveSession(id, wsUrl);
   }
 
   function handleDeleteSession(id: string) {
     sessionsStore.delete(id);
+  }
+
+  function handleCloseTerminal() {
+    if (currentSessionsState.activeSessionId) {
+      sessionsStore.delete(currentSessionsState.activeSessionId);
+    }
   }
 </script>
 
@@ -81,8 +99,12 @@
         <div class="spinner"></div>
         <p>Loading...</p>
       </div>
-    {:else if activeSession}
-      <ChatInterface session={activeSession} />
+    {:else if activeSession && activeWsUrl}
+      <Terminal
+        session={activeSession}
+        wsUrl={activeWsUrl}
+        onClose={handleCloseTerminal}
+      />
     {:else if activeTab === 'config'}
       <ConfigPanel />
     {:else}
@@ -91,6 +113,7 @@
           <h3>Sessions</h3>
           {#if currentSessionsState.sessions.length === 0}
             <p class="empty-text">No active sessions</p>
+            <p class="hint-text">Select a directory from the file manager to start a Claude session</p>
           {:else}
             <ul class="session-list">
               {#each currentSessionsState.sessions as session}
@@ -244,6 +267,13 @@
     padding: 20px;
   }
 
+  .hint-text {
+    color: #94a3b8;
+    font-size: 12px;
+    text-align: center;
+    padding: 0 20px 20px;
+  }
+
   .session-list {
     list-style: none;
     flex: 1;
@@ -267,6 +297,7 @@
     border-radius: 6px;
     text-align: left;
     transition: all 0.15s;
+    cursor: pointer;
   }
 
   .session-button:hover {
@@ -300,6 +331,8 @@
     color: #94a3b8;
     font-size: 18px;
     border-radius: 4px;
+    border: none;
+    cursor: pointer;
   }
 
   .delete-button:hover {

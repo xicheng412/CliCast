@@ -8,6 +8,8 @@ import configApi from './api/config.js';
 import dirsApi from './api/dirs.js';
 import sessionsApi from './api/sessions.js';
 import { getConfig } from './services/config.js';
+import { handleWebSocket, shutdown as shutdownWs } from './services/websocket.js';
+import { cleanupAllSessions } from './services/terminal.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -19,6 +21,12 @@ app.use('/*', cors({
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }));
+
+// WebSocket upgrade endpoint
+app.get('/ws', (c) => {
+  const response = handleWebSocket(c.req.raw);
+  return response || c.text('WebSocket upgrade failed', 500);
+});
 
 // API routes
 app.route('/api/config', configApi);
@@ -83,6 +91,11 @@ app.get('/*', (c) => {
     return c.json({ error: 'Not Found' }, 404);
   }
 
+  // WebSocket requests should not reach here
+  if (url.pathname === '/ws') {
+    return c.text('WebSocket endpoint', 200);
+  }
+
   // Try to serve from apps/web/dist (production)
   const possiblePaths = [
     join(__dirname, '..', 'web', 'dist', 'index.html'),
@@ -131,10 +144,10 @@ app.get('/*', (c) => {
     <li><code>GET /api/dirs?path=xxx</code> - List directory contents</li>
     <li><code>GET /api/dirs/breadcrumbs?path=xxx</code> - Get path breadcrumbs</li>
     <li><code>GET /api/sessions</code> - List all sessions</li>
-    <li><code>POST /api/sessions</code> - Create a new session</li>
+    <li><code>POST /api/sessions</code> - Create a new session (returns wsUrl)</li>
     <li><code>DELETE /api/sessions/:id</code> - Close a session</li>
-    <li><code>GET /api/sessions/:id/stream</code> - SSE stream for a session</li>
-    <li><code>POST /api/sessions/:id/message</code> - Send message to session</li>
+    <li><code>GET /api/sessions/:id/ws</code> - Get WebSocket URL for terminal</li>
+    <li><code>GET /ws?sessionId=xxx</code> - WebSocket endpoint for terminal</li>
   </ul>
 </body>
 </html>`;
@@ -151,14 +164,38 @@ const config = getConfig();
 const idleTimeoutEnv = Number.parseInt(process.env.BUN_IDLE_TIMEOUT || '', 10);
 const idleTimeoutSeconds = Number.isFinite(idleTimeoutEnv) && idleTimeoutEnv > 0 ? idleTimeoutEnv : 120;
 
-// Start the server
+// Start the HTTP server with WebSocket support
 console.log(`Starting Online Claude Code server on port ${config.port}...`);
 console.log(`Local access: http://localhost:${config.port}`);
 
 Bun.serve({
-  fetch: app.fetch,
+  fetch(request) {
+    const upgradeHeader = request.headers.get('upgrade');
+    if (upgradeHeader === 'websocket') {
+      const response = handleWebSocket(request);
+      if (response) {
+        return response;
+      }
+    }
+    return app.fetch(request);
+  },
   port: config.port,
   idleTimeout: idleTimeoutSeconds,
+} as any);
+
+// Handle graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('Received SIGTERM, shutting down...');
+  cleanupAllSessions();
+  await shutdownWs();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('Received SIGINT, shutting down...');
+  cleanupAllSessions();
+  await shutdownWs();
+  process.exit(0);
 });
 
 console.log(`Server is ready!`);

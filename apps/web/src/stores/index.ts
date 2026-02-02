@@ -1,6 +1,6 @@
-import { writable, derived, type Writable } from 'svelte/store';
-import type { Config, DirResponse, Breadcrumb, Session, FileEntry } from './types';
-import { api } from './api';
+import { writable, type Writable } from 'svelte/store';
+import type { Config, Breadcrumb, Session, FileEntry } from './types';
+import { api, type TerminalSession } from './api';
 
 // Config store
 function createConfigStore() {
@@ -98,11 +98,13 @@ function createSessionsStore() {
   const { subscribe, set, update }: Writable<{
     sessions: Session[];
     activeSessionId: string | null;
+    activeSessionWsUrl: string | null;
     loading: boolean;
     error: string | null;
   }> = writable({
     sessions: [],
     activeSessionId: null,
+    activeSessionWsUrl: null,
     loading: false,
     error: null,
   });
@@ -117,6 +119,7 @@ function createSessionsStore() {
         set({
           sessions,
           activeSessionId: null,
+          activeSessionWsUrl: null,
           loading: false,
           error: null,
         });
@@ -128,7 +131,7 @@ function createSessionsStore() {
         }));
       }
     },
-    async create(path: string): Promise<Session | null> {
+    async create(path: string): Promise<TerminalSession | null> {
       update((state) => ({ ...state, loading: true, error: null }));
 
       try {
@@ -137,6 +140,7 @@ function createSessionsStore() {
           ...state,
           sessions: [...state.sessions, session],
           activeSessionId: session.id,
+          activeSessionWsUrl: session.wsUrl,
           loading: false,
           error: null,
         }));
@@ -157,6 +161,7 @@ function createSessionsStore() {
           ...state,
           sessions: state.sessions.filter((s) => s.id !== id),
           activeSessionId: state.activeSessionId === id ? null : state.activeSessionId,
+          activeSessionWsUrl: state.activeSessionId === id ? null : state.activeSessionWsUrl,
         }));
       } catch (error) {
         console.error('Failed to delete session:', error);
@@ -173,8 +178,8 @@ function createSessionsStore() {
         console.error('Failed to stop session:', error);
       }
     },
-    setActiveSession(id: string | null) {
-      update((state) => ({ ...state, activeSessionId: id }));
+    setActiveSession(id: string | null, wsUrl: string | null = null) {
+      update((state) => ({ ...state, activeSessionId: id, activeSessionWsUrl: wsUrl }));
     },
     updateSession(session: Session) {
       update((state) => ({
@@ -182,8 +187,8 @@ function createSessionsStore() {
         sessions: state.sessions.map((s) => (s.id === session.id ? session : s)),
       }));
     },
-    async sendMessage(id: string, message: string) {
-      return api.sendMessage(id, message);
+    async getWebSocketUrl(sessionId: string): Promise<string> {
+      return api.getWebSocketUrl(sessionId);
     },
     createEventSource(id: string): EventSource {
       return api.createEventSource(id);
