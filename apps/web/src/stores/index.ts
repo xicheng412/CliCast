@@ -1,5 +1,5 @@
 import { writable, type Writable } from 'svelte/store';
-import type { Config, Breadcrumb, Session, FileEntry } from './types';
+import type { Config, Breadcrumb, Session, FileEntry } from '@online-cc/types';
 import { api, type TerminalSession } from './api';
 
 // Recent paths store

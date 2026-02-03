@@ -1,4 +1,4 @@
-import type { Config, DirResponse, Breadcrumb, Session } from './types';
+import type { Config, DirResponse, Breadcrumb, Session } from '@online-cc/types';
 
 const API_BASE = '/api';
 

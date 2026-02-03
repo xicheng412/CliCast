@@ -3,5 +3,5 @@
   "compilerOptions": {
     "types": ["svelte", "vite/client"]
   },
-  "include": ["src/**/*", "../../shared/**/*"]
+  "include": ["src/**/*"]
 }

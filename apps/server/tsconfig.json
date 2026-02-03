@@ -1,10 +1,7 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "types": ["bun-types", "node"],
-    "paths": {
-      "@shared/*": ["../../shared/*"]
-    }
+    "types": ["bun-types", "node"]
   },
-  "include": ["src/**/*", "../../shared/**/*"]
+  "include": ["src/**/*"]
 }
