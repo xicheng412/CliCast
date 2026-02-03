@@ -2,6 +2,56 @@ import { writable, type Writable } from 'svelte/store';
 import type { Config, Breadcrumb, Session, FileEntry } from './types';
 import { api, type TerminalSession } from './api';
 
+// Recent paths store
+function createRecentPathsStore() {
+  const MAX_SIZE = 5;
+  const STORAGE_KEY = 'recent-paths';
+
+  // Load from localStorage
+  function load(): string[] {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  // Save to localStorage
+  function save(paths: string[]) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(paths));
+  }
+
+  const { subscribe, set, update }: Writable<string[]> = writable(load());
+
+  return {
+    subscribe,
+    addPath(path: string) {
+      update((paths) => {
+        // Deduplicate and move to top
+        const filtered = paths.filter((p) => p !== path);
+        const updated = [path, ...filtered];
+        // Limit size
+        const result = updated.slice(0, MAX_SIZE);
+        save(result);
+        return result;
+      });
+    },
+    removePath(path: string) {
+      update((paths) => {
+        const result = paths.filter((p) => p !== path);
+        save(result);
+        return result;
+      });
+    },
+    clear() {
+      set([]);
+      localStorage.removeItem(STORAGE_KEY);
+    },
+  };
+}
+
+export const recentPathsStore = createRecentPathsStore();
+
 // Config store
 function createConfigStore() {
   const { subscribe, set, update }: Writable<Config | null> = writable(null);

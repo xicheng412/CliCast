@@ -1,6 +1,6 @@
 import { spawn, ChildProcess } from 'child_process';
 import { randomUUID } from 'crypto';
-import type { Session, SessionStatus } from '@shared/types/index.js';
+import type { Session, SessionStatus } from '@online-cc/types';
 
 interface SessionRecord extends Session {
   process?: ChildProcess;

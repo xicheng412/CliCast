@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { getConfig, updateConfig } from '../services/config.js';
-import type { ApiResponse, Config, ConfigUpdate } from '@shared/types/index.js';
+import type { ApiResponse, Config, ConfigUpdate } from '@online-cc/types';
 
 const app = new Hono();
 

@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { createTerminal, getSessions, getSession, deleteSession, terminateSession } from '../services/terminal.js';
 import { getConfig } from '../services/config.js';
 import { validatePath, listDir } from '../services/file.js';
-import type { ApiResponse, Session, CreateSessionRequest } from '@shared/types/index.js';
+import type { ApiResponse, Session, CreateSessionRequest } from '@online-cc/types';
 
 const app = new Hono();
 

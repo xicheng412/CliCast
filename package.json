@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Web interface for Claude Code CLI",
   "type": "module",
-  "workspaces": ["apps/web", "apps/server"],
+  "workspaces": ["apps/*", "shared/types"],
   "scripts": {
     "dev": "bun --filter './apps/*' dev",
     "dev:server": "bun --cwd apps/server dev",

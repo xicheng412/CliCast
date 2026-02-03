@@ -2,7 +2,7 @@ import * as pty from 'node-pty';
 import { randomUUID } from 'crypto';
 import { sendToSession, broadcastToSession, closeSessionClients } from './websocket.js';
 import { getConfig } from './config.js';
-import type { Session, SessionStatus } from '@shared/types/index.js';
+import type { Session, SessionStatus } from '@online-cc/types';
 
 interface PtySession extends Session {
   process?: pty.IPty;

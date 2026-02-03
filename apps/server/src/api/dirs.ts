@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { listDir, getBreadcrumbs, getRootDirs, getHomeDir, validatePath } from '../services/file.js';
 import { getConfig } from '../services/config.js';
-import type { ApiResponse, DirResponse, Breadcrumb } from '@shared/types/index.js';
+import type { ApiResponse, DirResponse, Breadcrumb } from '@online-cc/types';
 
 const app = new Hono();
 

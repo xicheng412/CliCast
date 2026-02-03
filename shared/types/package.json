@@ -1,0 +1,9 @@
+{
+  "name": "@online-cc/types",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./package.json": "./package.json"
+  }
+}

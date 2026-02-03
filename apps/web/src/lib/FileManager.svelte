@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { dirStore, sessionsStore } from '../stores/index.js';
+  import { dirStore, sessionsStore, recentPathsStore } from '../stores/index.js';
   import { api } from '../stores/api.js';
 
   let selectedPath = $state<string | null>(null);
@@ -42,6 +42,11 @@
     dirStore.navigateTo(path);
   }
 
+  function handleRemoveRecentPath(e: MouseEvent, path: string) {
+    e.stopPropagation();
+    recentPathsStore.removePath(path);
+  }
+
   async function handleLoadDirectory() {
     const path = $dirStore.currentPath || '/';
     isCreatingSession = true;
@@ -49,6 +54,7 @@
       const session = await sessionsStore.create(path);
       if (session) {
         console.log('Session created:', session.id);
+        recentPathsStore.addPath(path);
       }
     } finally {
       isCreatingSession = false;
@@ -75,15 +81,43 @@
 
 <div class="file-manager">
   <div class="toolbar">
-    <button onclick={handleGoHome} class="btn-secondary">Home</button>
-    <button
-      onclick={handleLoadDirectory}
-      class="btn-primary"
-      disabled={!$dirStore.currentPath || isCreatingSession}
-    >
-      {isCreatingSession ? 'Loading...' : 'Load This Directory'}
-    </button>
+    <div class="toolbar-left">
+      <button onclick={handleGoHome} class="btn-secondary">Home</button>
+    </div>
+    <div class="toolbar-right">
+      <button
+        onclick={handleLoadDirectory}
+        class="btn-primary"
+        disabled={!$dirStore.currentPath || isCreatingSession}
+      >
+        {isCreatingSession ? 'Loading...' : 'Load This Directory'}
+      </button>
+    </div>
   </div>
+
+  {#if $recentPathsStore.length > 0}
+    <div class="recent-paths">
+      <span class="recent-label">Recent:</span>
+      {#each $recentPathsStore as path}
+        <button
+          class="recent-path-chip"
+          onclick={() => handlePathClick(path)}
+          title={path}
+        >
+          {path.split('/').pop() || path}
+          <span
+            class="remove-btn"
+            onclick={(e) => handleRemoveRecentPath(e, path)}
+          >×</span>
+        </button>
+      {/each}
+      <button
+        class="clear-btn"
+        onclick={() => recentPathsStore.clear()}
+        title="Clear recent paths"
+      >Clear</button>
+    </div>
+  {/if}
 
   <div class="path-bar">
     <button onclick={() => handlePathClick('/')} class="path-item">Root</button>
@@ -155,7 +189,79 @@
 
   .toolbar {
     display: flex;
+    justify-content: space-between;
     gap: 8px;
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    display: flex;
+    gap: 8px;
+  }
+
+  .recent-paths {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 0;
+    flex-wrap: wrap;
+  }
+
+  .recent-label {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .recent-path-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    font-size: 12px;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .recent-path-chip:hover {
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+  }
+
+  .remove-btn {
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 50%;
+  }
+
+  .remove-btn:hover {
+    background: #cbd5e1;
+    color: #475569;
+  }
+
+  .clear-btn {
+    padding: 4px 8px;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .clear-btn:hover {
+    color: #ef4444;
   }
 
   .path-bar {

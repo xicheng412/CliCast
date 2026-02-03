@@ -1,4 +1,4 @@
-import type { Config } from '@shared/types/index.js';
+import type { Config } from '@online-cc/types';
 
 const DEFAULT_PORT = 3000;
 const DEFAULT_CLAUDE_COMMAND = 'claude';

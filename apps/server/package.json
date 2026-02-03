@@ -6,6 +6,7 @@
     "dev": "bun --env-file .env run --watch src/index.ts"
   },
   "dependencies": {
+    "@online-cc/types": "0.0.0",
     "hono": "^4.6.0",
     "node-pty": "^1.0.0",
     "ws": "^8.18.0"
