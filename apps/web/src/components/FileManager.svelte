@@ -1,9 +1,45 @@
 <script lang="ts">
   import { dirStore, sessionsStore, recentPathsStore } from '../stores/index.js';
   import { api } from '../stores/api.js';
+  import { router } from '../router.js';
 
   let selectedPath = $state<string | null>(null);
   let isCreatingSession = $state(false);
+
+  function waitForSessionRunning(wsUrl: string, sessionId: string): Promise<void> {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        console.warn('Session startup timeout, navigating anyway...');
+        resolve();
+      }, 10000);
+
+      const ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log('Connected to session WebSocket');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'status' && data.data?.status === 'running') {
+            console.log('Session is running, navigating...');
+            clearTimeout(timeout);
+            ws.close();
+            resolve();
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      };
+
+      ws.onerror = () => {
+        console.warn('WebSocket error, navigating anyway...');
+        clearTimeout(timeout);
+        resolve();
+      };
+    });
+  }
 
   // Access store directly with $ prefix in the script
   function getCurrentDir() {
@@ -55,6 +91,13 @@
       if (session) {
         console.log('Session created:', session.id);
         recentPathsStore.addPath(path);
+
+        // Wait for PTY to start and connect to WebSocket
+        const wsUrl = session.wsUrl;
+        await waitForSessionRunning(wsUrl, session.id);
+
+        // Navigate to session page
+        router.navigate('/session', { sessionId: session.id });
       }
     } finally {
       isCreatingSession = false;

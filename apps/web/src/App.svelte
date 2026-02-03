@@ -1,161 +1,51 @@
 <script lang="ts">
+  import { router } from './router';
+  import Header from './components/Header.svelte';
+  import Footer from './components/Footer.svelte';
+  import FilesPage from './pages/FilesPage.svelte';
+  import SettingsPage from './pages/SettingsPage.svelte';
+  import SessionPage from './pages/SessionPage.svelte';
   import { onMount } from 'svelte';
-  import { configStore, dirStore, sessionsStore } from './stores';
+  import { configStore, sessionsStore, dirStore } from './stores';
   import { api } from './stores/api.js';
-  import FileManager from './lib/FileManager.svelte';
-  import ConfigPanel from './lib/ConfigPanel.svelte';
-  import Terminal from './lib/Terminal.svelte';
-  import type { Session, Config } from './stores/types';
+  import './styles.css';
 
-  let activeTab = $state<'files' | 'config'>('files');
   let initialized = $state(false);
+  let routerState = $state(router.state);
 
-  // Local state for reactive values - updated via $effect after init
-  let currentSessionsState = $state({
-    sessions: [] as Session[],
-    activeSessionId: null as string | null,
-    activeSessionWsUrl: null as string | null,
+  // 订阅路由变化
+  $effect(() => {
+    const unsub = router.subscribe((state) => {
+      routerState = state;
+    });
+    return unsub;
   });
-  let currentConfigState = $state<Config | null>(null);
-
-  function getActiveSession(): Session | null {
-    const activeId = currentSessionsState.activeSessionId;
-    if (!activeId) return null;
-    return currentSessionsState.sessions.find((s) => s.id === activeId) || null;
-  }
-
-  const activeSession = $derived(getActiveSession());
-  const activeWsUrl = $derived(currentSessionsState.activeSessionWsUrl);
 
   onMount(async () => {
-    await Promise.all([
-      configStore.load(),
-      sessionsStore.load(),
-    ]);
-
-    // 获取 home 目录后再加载文件列表
+    await Promise.all([configStore.load(), sessionsStore.load()]);
     const home = await api.getHomeDir();
     await dirStore.navigateTo(home.path);
     initialized = true;
   });
-
-  // Sync store changes to local state after initialization
-  $effect(() => {
-    if (initialized) {
-      const snapshot = $state.snapshot($sessionsStore);
-      currentSessionsState = {
-        sessions: snapshot.sessions,
-        activeSessionId: snapshot.activeSessionId,
-        activeSessionWsUrl: snapshot.activeSessionWsUrl,
-      };
-    }
-  });
-
-  $effect(() => {
-    if (initialized) {
-      currentConfigState = $state.snapshot($configStore);
-    }
-  });
-
-  async function handleSetActiveSession(id: string) {
-    // When selecting an existing session, fetch its WebSocket URL
-    const wsUrl = await sessionsStore.getWebSocketUrl(id);
-    sessionsStore.setActiveSession(id, wsUrl);
-  }
-
-  function handleDeleteSession(id: string) {
-    sessionsStore.delete(id);
-  }
-
-  function handleCloseTerminal() {
-    if (currentSessionsState.activeSessionId) {
-      sessionsStore.delete(currentSessionsState.activeSessionId);
-    }
-  }
 </script>
 
 <div class="app">
-  <header class="header">
-    <h1>Claude Code Online</h1>
-    <nav class="nav-tabs">
-      <button
-        class:active={activeTab === 'files'}
-        onclick={() => (activeTab = 'files')}
-      >
-        Files
-      </button>
-      <button
-        class:active={activeTab === 'config'}
-        onclick={() => (activeTab = 'config')}
-      >
-        Settings
-      </button>
-    </nav>
-  </header>
-
+  <Header />
   <main class="main">
     {#if !initialized}
       <div class="loading-screen">
         <div class="spinner"></div>
         <p>Loading...</p>
       </div>
-    {:else if activeSession && activeWsUrl}
-      <Terminal
-        session={activeSession}
-        wsUrl={activeWsUrl}
-        onClose={handleCloseTerminal}
-      />
-    {:else if activeTab === 'config'}
-      <ConfigPanel />
+    {:else if routerState.path === '/settings'}
+      <SettingsPage />
+    {:else if routerState.path === '/session'}
+      <SessionPage sessionId={routerState.params.sessionId} />
     {:else}
-      <div class="content-grid">
-        <div class="sessions-panel card">
-          <h3>Sessions</h3>
-          {#if currentSessionsState.sessions.length === 0}
-            <p class="empty-text">No active sessions</p>
-            <p class="hint-text">Select a directory from the file manager to start a Claude session</p>
-          {:else}
-            <ul class="session-list">
-              {#each currentSessionsState.sessions as session}
-                <li class="session-item">
-                  <button
-                    class="session-button"
-                    class:active={currentSessionsState.activeSessionId === session.id}
-                    onclick={() => handleSetActiveSession(session.id)}
-                  >
-                    <div class="session-info">
-                      <span class="session-path">{session.path.split('/').pop()}</span>
-                      <span class="status-badge {session.status}">{session.status}</span>
-                    </div>
-                  </button>
-                  <button
-                    onclick={() => handleDeleteSession(session.id)}
-                    class="delete-button"
-                    title="Delete session"
-                  >
-                    ×
-                  </button>
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        </div>
-
-        <div class="file-manager-panel card">
-          <FileManager />
-        </div>
-      </div>
+      <FilesPage />
     {/if}
   </main>
-
-  <footer class="footer">
-    <span>Online Claude Code</span>
-    {#if currentConfigState}
-      <span class="config-info">
-        Command: <code>{currentConfigState.claudeCommand}</code>
-      </span>
-    {/if}
-  </footer>
+  <Footer />
 </div>
 
 <style>
@@ -163,45 +53,6 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-  }
-
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 24px;
-    background: white;
-    border-bottom: 1px solid #e2e8f0;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  }
-
-  .header h1 {
-    font-size: 18px;
-    font-weight: 600;
-    color: #1e293b;
-  }
-
-  .nav-tabs {
-    display: flex;
-    gap: 4px;
-  }
-
-  .nav-tabs button {
-    background: transparent;
-    color: #64748b;
-    padding: 8px 16px;
-    border-radius: 6px;
-    font-weight: 500;
-  }
-
-  .nav-tabs button:hover {
-    background: #f1f5f9;
-    color: #1e293b;
-  }
-
-  .nav-tabs button.active {
-    background: #6366f1;
-    color: white;
   }
 
   .main {
@@ -218,14 +69,14 @@
     justify-content: center;
     flex: 1;
     gap: 16px;
-    color: #64748b;
+    color: var(--text-muted);
   }
 
   .spinner {
     width: 32px;
     height: 32px;
     border: 3px solid #e2e8f0;
-    border-top-color: #6366f1;
+    border-top-color: var(--primary-color);
     border-radius: 50%;
     animation: spin 1s linear infinite;
   }
@@ -233,146 +84,6 @@
   @keyframes spin {
     to {
       transform: rotate(360deg);
-    }
-  }
-
-  .content-grid {
-    display: grid;
-    grid-template-columns: 280px 1fr;
-    gap: 20px;
-    padding: 20px;
-    flex: 1;
-    overflow: hidden;
-  }
-
-  .sessions-panel {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .sessions-panel h3 {
-    font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 12px;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .empty-text {
-    color: #94a3b8;
-    font-size: 14px;
-    text-align: center;
-    padding: 20px;
-  }
-
-  .hint-text {
-    color: #94a3b8;
-    font-size: 12px;
-    text-align: center;
-    padding: 0 20px 20px;
-  }
-
-  .session-list {
-    list-style: none;
-    flex: 1;
-    overflow-y: auto;
-  }
-
-  .session-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 0;
-  }
-
-  .session-button {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    padding: 10px 12px;
-    background: #f8fafc;
-    border: 1px solid transparent;
-    border-radius: 6px;
-    text-align: left;
-    transition: all 0.15s;
-    cursor: pointer;
-  }
-
-  .session-button:hover {
-    background: #f1f5f9;
-  }
-
-  .session-button.active {
-    background: #e0e7ff;
-    border-color: #6366f1;
-  }
-
-  .session-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .session-path {
-    font-size: 13px;
-    font-weight: 500;
-    color: #1e293b;
-  }
-
-  .delete-button {
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    color: #94a3b8;
-    font-size: 18px;
-    border-radius: 4px;
-    border: none;
-    cursor: pointer;
-  }
-
-  .delete-button:hover {
-    background: #fee2e2;
-    color: #ef4444;
-  }
-
-  .file-manager-panel {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 24px;
-    background: white;
-    border-top: 1px solid #e2e8f0;
-    font-size: 13px;
-    color: #64748b;
-  }
-
-  .config-info code {
-    background: #f1f5f9;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 12px;
-    color: #6366f1;
-  }
-
-  @media (max-width: 768px) {
-    .content-grid {
-      grid-template-columns: 1fr;
-      grid-template-rows: auto 1fr;
-    }
-
-    .sessions-panel {
-      max-height: 200px;
     }
   }
 </style>

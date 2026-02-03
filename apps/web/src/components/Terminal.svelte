@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { Terminal } from 'xterm';
   import { FitAddon } from 'xterm-addon-fit';
-  import type { Session } from '../stores/types.js';
+  import type { Session } from '@online-cc/types';
 
   interface Props {
     session: Session;

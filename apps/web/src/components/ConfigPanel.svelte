@@ -1,6 +1,6 @@
 <script lang="ts">
   import { configStore } from '../stores/index.js';
-  import type { Config } from '../stores/types.js';
+  import type { Config } from '@online-cc/types';
 
   let localConfig = $state<Partial<Config>>({});
   let isSaving = $state(false);
