@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { createTerminal, getSessions, getSession, deleteSession, terminateSession } from '../services/terminal.js';
+import { createSession, getSessions, getSession, deleteSession, terminateSession } from '../services/terminal.js';
 import { getConfig } from '../services/config.js';
 import { validatePath, listDir } from '../services/file.js';
 import type { ApiResponse, Session, CreateSessionRequest } from '@online-cc/types';
@@ -58,14 +58,19 @@ app.post('/', async (c) => {
       return c.json(response, 400);
     }
 
-    // Create session and start PTY
-    const session = createTerminal(body.path, config.claudeCommand);
+    // Create session (PTY will start when WebSocket sends 'init')
+    const session = createSession(body.path);
+
+    // Build WebSocket URL based on the current request's origin
+    const url = new URL(c.req.url);
+    const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${url.host}/ws?sessionId=${session.id}`;
 
     const response: ApiResponse<Session & { wsUrl: string }> = {
       success: true,
       data: {
         ...session,
-        wsUrl: `/api/sessions/${session.id}/ws`,
+        wsUrl,
       },
     };
     return c.json(response, 201);

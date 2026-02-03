@@ -91,9 +91,4 @@ export const api = {
     );
     return response.data.wsUrl;
   },
-
-  // SSE Stream (legacy, kept for reference)
-  createEventSource(sessionId: string): EventSource {
-    return new EventSource(`${API_BASE}/sessions/${sessionId}/stream`);
-  },
 };

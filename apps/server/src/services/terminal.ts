@@ -1,22 +1,23 @@
 import * as pty from 'node-pty';
 import { randomUUID } from 'crypto';
-import { sendToSession, broadcastToSession, closeSessionClients } from './websocket.js';
 import { getConfig } from './config.js';
 import type { Session, SessionStatus } from '@online-cc/types';
 
 interface PtySession extends Session {
   process?: pty.IPty;
   ptyName?: string;
+  claudeCommand?: string;
 }
 
-interface TerminalCallbacks {
-  onOutput?: (sessionId: string, data: string) => void;
-  onStatusChange?: (sessionId: string, status: SessionStatus) => void;
-  onExit?: (sessionId: string) => void;
+export interface TerminalCallbacks {
+  onOutput?: (data: string) => void;
+  onStatusChange?: (status: SessionStatus) => void;
+  onExit?: (code: number, signal?: number) => void;
+  onError?: (message: string) => void;
 }
 
 const sessions = new Map<string, PtySession>();
-const callbacks = new Map<string, TerminalCallbacks>();
+const sessionCallbacks = new Map<string, TerminalCallbacks>();
 const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 const HEARTBEAT_INTERVAL = 30 * 1000; // 30 seconds
 
@@ -42,67 +43,30 @@ function stopHeartbeat() {
   }
 }
 
-// Handle WebSocket messages
-if (typeof globalThis !== 'undefined') {
-  globalThis.addEventListener('ws:input', ((event: CustomEvent) => {
-    const { sessionId, data } = event.detail;
-    handleInput(sessionId, data);
-  }) as EventListener);
-
-  globalThis.addEventListener('ws:resize', ((event: CustomEvent) => {
-    const { sessionId, cols, rows } = event.detail;
-    handleResize(sessionId, cols, rows);
-  }) as EventListener);
+// Check if a session exists (for WebSocket validation)
+export function sessionExists(sessionId: string): boolean {
+  return sessions.has(sessionId);
 }
 
-function handleInput(sessionId: string, data: string) {
-  const session = sessions.get(sessionId);
-  if (!session || !session.process) {
-    console.error(`[terminal] No session or process for ${sessionId}`);
-    return;
-  }
-
-  session.lastActivity = Date.now();
-  session.process.write(data);
-
-  // Update status to running if idle
-  if (session.status === 'idle') {
-    session.status = 'running';
-    broadcastToSession(sessionId, 'status', { status: 'running', sessionId });
-    const cb = callbacks.get(sessionId);
-    cb?.onStatusChange?.(sessionId, 'running');
-  }
-}
-
-function handleResize(sessionId: string, cols: number, rows: number) {
-  const session = sessions.get(sessionId);
-  if (!session || !session.process) {
-    return;
-  }
-
-  session.process.resize(cols, rows);
-  session.lastActivity = Date.now();
-}
-
-export function createTerminal(path: string, claudeCommand: string): Session {
+// Create a session record without starting PTY (deferred start)
+export function createSession(path: string): Session {
+  const config = getConfig();
   const id = randomUUID();
   const now = Date.now();
 
   const session: PtySession = {
     id,
     path,
-    status: 'idle',
+    status: 'idle', // Will become 'running' when PTY starts
     createdAt: now,
     lastActivity: now,
+    claudeCommand: config.claudeCommand,
   };
 
   sessions.set(id, session);
   startHeartbeat();
 
-  console.log(`[terminal] Created session ${id} for path ${path}`);
-
-  // Start the PTY process with claude
-  startClaude(id, path, claudeCommand);
+  console.log(`[terminal] Created session ${id} for path ${path} (PTY not started yet)`);
 
   return {
     id: session.id,
@@ -113,89 +77,36 @@ export function createTerminal(path: string, claudeCommand: string): Session {
   };
 }
 
-function startClaude(sessionId: string, cwd: string, command: string) {
+// Initialize terminal with dimensions (called when WebSocket sends 'init')
+export function initializeTerminal(
+  sessionId: string,
+  cols: number,
+  rows: number,
+  callbacks: TerminalCallbacks
+): boolean {
   const session = sessions.get(sessionId);
   if (!session) {
     console.error(`[terminal] Session ${sessionId} not found`);
-    return;
+    return false;
   }
 
-  const config = getConfig();
-
-  // Parse command - handle "claude" or "claude --workdir /path"
-  const commandParts = parseCommand(command, cwd);
-  const shell = commandParts[0];
-  const args = commandParts.slice(1);
-
-  console.log(`[terminal] Starting PTY: ${shell} ${args.join(' ')} in ${cwd}`);
-
-  try {
-    const ptyProcess = pty.spawn(shell, args, {
-      name: 'xterm-color',
-      cols: 80,
-      rows: 24,
-      cwd: cwd,
-      env: {
-        ...process.env,
-        NO_COLOR: '1',
-        TERM: 'xterm-color',
-        COLORTERM: 'truecolor',
-      },
-    });
-
-    session.process = ptyProcess;
-    session.ptyName = `pty-${sessionId}`;
-    session.status = 'running';
-    session.lastActivity = Date.now();
-
-    // Notify clients that session is running
-    broadcastToSession(sessionId, 'status', { status: 'running', sessionId });
-
-    // Set up output handlers
-    ptyProcess.onData((data: string) => {
-      session.lastActivity = Date.now();
-      sendToSession(sessionId, 'output', data);
-
-      const cb = callbacks.get(sessionId);
-      cb?.onOutput?.(sessionId, data);
-    });
-
-    ptyProcess.onExit(({ exitCode, signal }) => {
-      const code = exitCode;
-      console.log(`[terminal] PTY exited: sessionId=${sessionId} code=${code} signal=${signal}`);
-
-      session.process = undefined;
-      session.status = code === 0 ? 'idle' : 'error';
-      session.lastActivity = Date.now();
-
-      // Notify clients
-      broadcastToSession(sessionId, 'status', { status: session.status, sessionId });
-      broadcastToSession(sessionId, 'exit', { code, signal });
-
-      const cb = callbacks.get(sessionId);
-      cb?.onStatusChange?.(sessionId, session.status);
-      cb?.onExit?.(sessionId);
-
-      // Close WebSocket clients after a delay to allow exit message to be received
-      setTimeout(() => closeSessionClients(sessionId), 1500);
-    });
-
-  } catch (error) {
-    console.error(`[terminal] Failed to start PTY:`, error);
-    session.status = 'error';
-    broadcastToSession(sessionId, 'error', { message: error instanceof Error ? error.message : 'Failed to start PTY' });
+  if (session.process) {
+    console.log(`[terminal] Session ${sessionId} already has PTY running`);
+    return true;
   }
+
+  // Store callbacks for this session
+  sessionCallbacks.set(sessionId, callbacks);
+
+  // Start PTY with correct dimensions
+  return startPty(sessionId, cols, rows);
 }
 
 function parseCommand(command: string, cwd: string): string[] {
-  // If command is just "claude", expand to full path or use shell's default
   if (command === 'claude' || command.trim() === '') {
-    // Default: use bash with claude command
     return ['bash', '-c', `cd "${cwd}" && claude`];
   }
 
-  // Handle commands with arguments
-  // e.g., "claude --workdir /path" -> ["bash", "-c", "cd /path && claude"]
   if (command.includes('--workdir')) {
     const match = command.match(/--workdir\s+(\S+)/);
     const workdir = match ? match[1] : cwd;
@@ -206,7 +117,71 @@ function parseCommand(command: string, cwd: string): string[] {
   return ['bash', '-c', `cd "${cwd}" && ${command}`];
 }
 
-export function sendToTerminal(sessionId: string, data: string): void {
+function startPty(sessionId: string, cols: number, rows: number): boolean {
+  const session = sessions.get(sessionId);
+  if (!session) return false;
+
+  const command = session.claudeCommand || 'claude';
+  const cwd = session.path;
+  const commandParts = parseCommand(command, cwd);
+  const shell = commandParts[0];
+  const args = commandParts.slice(1);
+
+  console.log(`[terminal] Starting PTY: ${shell} ${args.join(' ')} in ${cwd} (${cols}x${rows})`);
+
+  try {
+    const ptyProcess = pty.spawn(shell, args, {
+      name: 'xterm-color',
+      cols,
+      rows,
+      cwd: cwd,
+      env: {
+        ...process.env,
+        TERM: 'xterm-color',
+        COLORTERM: 'truecolor',
+      },
+    });
+
+    session.process = ptyProcess;
+    session.ptyName = `pty-${sessionId}`;
+    session.status = 'running';
+    session.lastActivity = Date.now();
+
+    const callbacks = sessionCallbacks.get(sessionId);
+
+    // Notify status change
+    callbacks?.onStatusChange?.('running');
+
+    // Set up output handler
+    ptyProcess.onData((data: string) => {
+      session.lastActivity = Date.now();
+      callbacks?.onOutput?.(data);
+    });
+
+    // Set up exit handler
+    ptyProcess.onExit(({ exitCode, signal }) => {
+      console.log(`[terminal] PTY exited: sessionId=${sessionId} code=${exitCode} signal=${signal}`);
+
+      session.process = undefined;
+      session.status = exitCode === 0 ? 'idle' : 'error';
+      session.lastActivity = Date.now();
+
+      callbacks?.onStatusChange?.(session.status);
+      callbacks?.onExit?.(exitCode, signal);
+    });
+
+    return true;
+  } catch (error) {
+    console.error(`[terminal] Failed to start PTY:`, error);
+    session.status = 'error';
+    const callbacks = sessionCallbacks.get(sessionId);
+    callbacks?.onError?.(error instanceof Error ? error.message : 'Failed to start PTY');
+    return false;
+  }
+}
+
+// Write input to terminal
+export function writeToTerminal(sessionId: string, data: string): void {
   const session = sessions.get(sessionId);
   if (!session || !session.process) {
     console.error(`[terminal] No PTY process for session ${sessionId}`);
@@ -217,6 +192,7 @@ export function sendToTerminal(sessionId: string, data: string): void {
   session.process.write(data);
 }
 
+// Resize terminal
 export function resizeTerminal(sessionId: string, cols: number, rows: number): void {
   const session = sessions.get(sessionId);
   if (!session || !session.process) {
@@ -227,6 +203,7 @@ export function resizeTerminal(sessionId: string, cols: number, rows: number): v
   session.process.resize(cols, rows);
 }
 
+// Terminate a session
 export function terminateSession(sessionId: string, reason: SessionStatus = 'terminated'): Session | null {
   const session = sessions.get(sessionId);
   if (!session) return null;
@@ -241,12 +218,8 @@ export function terminateSession(sessionId: string, reason: SessionStatus = 'ter
   session.status = reason;
   session.lastActivity = Date.now();
 
-  // Notify clients
-  broadcastToSession(sessionId, 'status', { status: reason, sessionId });
-  closeSessionClients(sessionId);
-
-  const cb = callbacks.get(sessionId);
-  cb?.onStatusChange?.(sessionId, reason);
+  const callbacks = sessionCallbacks.get(sessionId);
+  callbacks?.onStatusChange?.(reason);
 
   return {
     id: session.id,
@@ -257,12 +230,14 @@ export function terminateSession(sessionId: string, reason: SessionStatus = 'ter
   };
 }
 
+// Delete a session
 export function deleteSession(sessionId: string): boolean {
   terminateSession(sessionId, 'terminated');
-  callbacks.delete(sessionId);
+  sessionCallbacks.delete(sessionId);
   return sessions.delete(sessionId);
 }
 
+// Get a single session
 export function getSession(sessionId: string): Session | null {
   const session = sessions.get(sessionId);
   if (!session) return null;
@@ -276,6 +251,7 @@ export function getSession(sessionId: string): Session | null {
   };
 }
 
+// Get all sessions
 export function getSessions(): Session[] {
   return Array.from(sessions.values()).map((s) => ({
     id: s.id,
@@ -286,19 +262,17 @@ export function getSessions(): Session[] {
   }));
 }
 
-export function registerCallbacks(sessionId: string, cb: TerminalCallbacks): void {
-  callbacks.set(sessionId, cb);
-}
-
+// Unregister callbacks for a session
 export function unregisterCallbacks(sessionId: string): void {
-  callbacks.delete(sessionId);
+  sessionCallbacks.delete(sessionId);
 }
 
+// Cleanup all sessions
 export function cleanupAllSessions() {
   stopHeartbeat();
   for (const [id] of sessions) {
     terminateSession(id, 'terminated');
     sessions.delete(id);
-    callbacks.delete(id);
+    sessionCallbacks.delete(id);
   }
 }

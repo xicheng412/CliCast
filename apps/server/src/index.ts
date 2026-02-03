@@ -8,7 +8,7 @@ import configApi from './api/config.js';
 import dirsApi from './api/dirs.js';
 import sessionsApi from './api/sessions.js';
 import { getConfig } from './services/config.js';
-import { handleWebSocket, shutdown as shutdownWs } from './services/websocket.js';
+import { websocketHandlers, getUpgradeData, shutdown as shutdownWs } from './services/websocket.js';
 import { cleanupAllSessions } from './services/terminal.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -21,12 +21,6 @@ app.use('/*', cors({
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }));
-
-// WebSocket upgrade endpoint
-app.get('/ws', (c) => {
-  const response = handleWebSocket(c.req.raw);
-  return response || c.text('WebSocket upgrade failed', 500);
-});
 
 // API routes
 app.route('/api/config', configApi);
@@ -168,20 +162,31 @@ const idleTimeoutSeconds = Number.isFinite(idleTimeoutEnv) && idleTimeoutEnv > 0
 console.log(`Starting Online Claude Code server on port ${config.port}...`);
 console.log(`Local access: http://localhost:${config.port}`);
 
-Bun.serve({
-  fetch(request) {
-    const upgradeHeader = request.headers.get('upgrade');
-    if (upgradeHeader === 'websocket') {
-      const response = handleWebSocket(request);
-      if (response) {
-        return response;
+const server = Bun.serve({
+  fetch(request, server) {
+    const url = new URL(request.url);
+
+    // Handle WebSocket upgrade for /ws endpoint
+    if (url.pathname === '/ws' && request.headers.get('upgrade') === 'websocket') {
+      const upgradeData = getUpgradeData(request);
+      if (!upgradeData) {
+        return new Response('Missing sessionId parameter', { status: 400 });
       }
+
+      const success = server.upgrade(request, { data: upgradeData });
+      if (success) {
+        // Bun returns undefined on successful upgrade
+        return undefined as unknown as Response;
+      }
+      return new Response('WebSocket upgrade failed', { status: 500 });
     }
+
     return app.fetch(request);
   },
+  websocket: websocketHandlers,
   port: config.port,
   idleTimeout: idleTimeoutSeconds,
-} as any);
+});
 
 // Handle graceful shutdown
 process.on('SIGTERM', async () => {

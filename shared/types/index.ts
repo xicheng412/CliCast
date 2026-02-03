@@ -68,3 +68,21 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
 }
+
+// WebSocket Message Types
+
+// Client -> Server messages
+export type ClientMessage =
+  | { type: 'init'; cols: number; rows: number }
+  | { type: 'input'; data: string }
+  | { type: 'resize'; cols: number; rows: number }
+  | { type: 'ping' };
+
+// Server -> Client messages
+export type ServerMessage =
+  | { type: 'ready'; sessionId: string }
+  | { type: 'output'; data: string }
+  | { type: 'status'; status: SessionStatus; sessionId: string }
+  | { type: 'error'; message: string }
+  | { type: 'exit'; code: number; signal?: number }
+  | { type: 'pong' };

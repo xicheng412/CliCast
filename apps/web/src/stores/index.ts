@@ -240,9 +240,6 @@ function createSessionsStore() {
     async getWebSocketUrl(sessionId: string): Promise<string> {
       return api.getWebSocketUrl(sessionId);
     },
-    createEventSource(id: string): EventSource {
-      return api.createEventSource(id);
-    },
   };
 }
 
