@@ -7,16 +7,19 @@ Svelte + Vite frontend for online-cc.
 ```
 src/
 ├── lib/
-│   ├── ChatInterface.svelte   # Main chat UI
-│   ├── ConfigPanel.svelte     # Settings panel
-│   └── FileManager.svelte     # File browser
+│   ├── ChatInterface.svelte      # Main chat UI
+│   ├── ConfigPanel.svelte        # Settings panel
+│   ├── DevTerminalConnection.ts  # Dev terminal WebSocket client
+│   └── FileManager.svelte        # File browser
+├── pages/
+│   └── DevTerminalPage.svelte    # Dev terminal page
 ├── stores/
-│   ├── api.ts                 # API client
-│   ├── index.ts               # State stores
-│   └── types.ts               # Type definitions
-├── App.svelte                 # Root component
-├── app.css                    # Styles
-└── main.ts                    # Entry point
+│   ├── api.ts                    # API client
+│   ├── index.ts                  # State stores
+│   └── types.ts                  # Type definitions
+├── App.svelte                    # Root component
+├── app.css                       # Styles
+└── main.ts                       # Entry point
 ```
 
 ## Development

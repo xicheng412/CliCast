@@ -28,7 +28,13 @@ function parseUrl(): RouterState {
     params.sessionId = hash.split('/')[2];
   }
 
-  return { path: hash.startsWith('/session/') ? '/session' : hash, params };
+  if (hash.startsWith('/session/')) {
+    return { path: '/session', params };
+  }
+  if (hash === '/dev-terminal') {
+    return { path: '/dev-terminal', params };
+  }
+  return { path: hash, params };
 }
 
 function updateUrl(path: string, params?: RouteParams) {

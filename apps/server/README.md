@@ -13,6 +13,7 @@ src/
 ├── services/
 │   ├── claude.ts       # Claude CLI execution
 │   ├── config.ts       # Config file operations
+│   ├── devTerminal.ts  # Dev terminal PTY management
 │   └── file.ts         # File system operations
 └── index.ts            # Server entry point
 ```
@@ -29,6 +30,13 @@ src/
 | GET | `/api/config` | Get config |
 | PUT | `/api/config` | Update config |
 | GET | `/api/dirs` | List directories |
+
+## WebSocket Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `/ws?sessionId=xxx` | Session terminal WebSocket |
+| `/ws/dev` | Dev terminal WebSocket (single shared instance) |
 
 ## Environment
 

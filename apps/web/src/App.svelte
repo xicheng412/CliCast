@@ -5,6 +5,7 @@
   import FilesPage from './pages/FilesPage.svelte';
   import SettingsPage from './pages/SettingsPage.svelte';
   import SessionPage from './pages/SessionPage.svelte';
+  import DevTerminalPage from './pages/DevTerminalPage.svelte';
   import { onMount } from 'svelte';
   import { configStore, sessionsStore, dirStore } from './stores';
   import { api } from './stores/api.js';
@@ -41,6 +42,8 @@
       <SettingsPage />
     {:else if routerState.path === '/session'}
       <SessionPage sessionId={routerState.params.sessionId} />
+    {:else if routerState.path === '/dev-terminal'}
+      <DevTerminalPage />
     {:else}
       <FilesPage />
     {/if}

@@ -21,6 +21,12 @@
       Files
     </button>
     <button
+      class:active={currentPath === '/dev-terminal'}
+      onclick={() => router.navigate('/dev-terminal')}
+    >
+      Terminal
+    </button>
+    <button
       class:active={currentPath === '/settings'}
       onclick={() => router.navigate('/settings')}
     >

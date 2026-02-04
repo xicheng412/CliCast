@@ -10,6 +10,7 @@ import sessionsApi from './api/sessions.js';
 import { getConfig } from './services/config.js';
 import { websocketHandlers, getUpgradeData, shutdown as shutdownWs } from './services/websocket.js';
 import { cleanupAllSessions } from './services/terminal.js';
+import * as devTerminal from './services/devTerminal.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -166,14 +167,23 @@ const server = Bun.serve({
   fetch(request, server) {
     const url = new URL(request.url);
 
-    // Handle WebSocket upgrade for /ws endpoint
+    // Handle WebSocket upgrade for /ws/dev endpoint (dev terminal)
+    if (url.pathname === '/ws/dev' && request.headers.get('upgrade') === 'websocket') {
+      const success = server.upgrade(request, { data: { type: 'dev' } as any });
+      if (success) {
+        return undefined as unknown as Response;
+      }
+      return new Response('WebSocket upgrade failed', { status: 500 });
+    }
+
+    // Handle WebSocket upgrade for /ws endpoint (session terminal)
     if (url.pathname === '/ws' && request.headers.get('upgrade') === 'websocket') {
       const upgradeData = getUpgradeData(request);
       if (!upgradeData) {
         return new Response('Missing sessionId parameter', { status: 400 });
       }
 
-      const success = server.upgrade(request, { data: upgradeData });
+      const success = server.upgrade(request, { data: { ...upgradeData, type: 'session' } as any });
       if (success) {
         // Bun returns undefined on successful upgrade
         return undefined as unknown as Response;
@@ -183,7 +193,54 @@ const server = Bun.serve({
 
     return app.fetch(request);
   },
-  websocket: websocketHandlers,
+  websocket: {
+    open(ws: any) {
+      if (ws.data.type === 'dev') {
+        // Dev terminal - no action needed on open
+      } else {
+        websocketHandlers.open(ws);
+      }
+    },
+    message(ws: any, message: string | Buffer) {
+      if (ws.data.type === 'dev') {
+        try {
+          const msg = JSON.parse(message.toString());
+          switch (msg.type) {
+            case 'init': {
+              const { isNew } = devTerminal.getOrCreate(msg.cols, msg.rows);
+              const unsubscribe = devTerminal.subscribe((data) => {
+                ws.send(JSON.stringify({ type: 'output', data }));
+              });
+              ws.data.unsubscribe = unsubscribe;
+              ws.send(JSON.stringify({ type: 'ready', isNew }));
+              break;
+            }
+            case 'input':
+              devTerminal.write(msg.data);
+              break;
+            case 'resize':
+              devTerminal.resize(msg.cols, msg.rows);
+              break;
+            case 'kill':
+              devTerminal.kill();
+              ws.send(JSON.stringify({ type: 'killed' }));
+              break;
+          }
+        } catch (e) {
+          console.error('[ws/dev] Failed to parse message:', e);
+        }
+      } else {
+        websocketHandlers.message(ws, message);
+      }
+    },
+    close(ws: any, code: number, reason: string) {
+      if (ws.data.type === 'dev') {
+        ws.data.unsubscribe?.();
+      } else {
+        websocketHandlers.close(ws, code, reason);
+      }
+    },
+  } as any,
   port: config.port,
   idleTimeout: idleTimeoutSeconds,
 });
