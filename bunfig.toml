@@ -1,0 +1,8 @@
+[install]
+lockfile = true
+
+[build]
+minify = true
+
+[dev]
+hot = true

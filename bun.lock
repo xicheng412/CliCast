@@ -5,21 +5,21 @@
     "": {
       "name": "online-cc",
       "devDependencies": {
-        "@types/node": "^20.0.0",
-        "bun-types": "^1.0.0",
+        "@types/node": "*",
+        "bun-types": "*",
       },
     },
     "apps/server": {
       "name": "online-cc-server",
       "version": "1.0.0",
       "dependencies": {
-        "@online-cc/types": "0.0.0",
+        "@online-cc/types": "workspace:*",
         "hono": "^4.6.0",
         "node-pty": "^1.0.0",
         "ws": "^8.18.0",
       },
       "devDependencies": {
-        "bun-types": "^1.0.0",
+        "bun-types": "*",
       },
     },
     "apps/web": {
@@ -38,9 +38,9 @@
         "vite": "^5.0.0",
       },
     },
-    "shared/types": {
+    "packages/types": {
       "name": "@online-cc/types",
-      "version": "0.0.0",
+      "version": "1.0.0",
     },
   },
   "packages": {
@@ -100,7 +100,7 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
-    "@online-cc/types": ["@online-cc/types@workspace:shared/types"],
+    "@online-cc/types": ["@online-cc/types@workspace:packages/types"],
 
     "@rollup/rollup-android-arm-eabi": ["@rollup/rollup-android-arm-eabi@4.57.1", "", { "os": "android", "cpu": "arm" }, "sha512-A6ehUVSiSaaliTxai040ZpZ2zTevHYbvu/lDoeAteHI8QnaosIzm4qwtezfRg1jOYaUmnzLX1AOD6Z+UJjtifg=="],
 
