@@ -30,7 +30,7 @@ function startHeartbeat() {
     const now = Date.now();
     for (const [id, session] of sessions) {
       if (session.status === 'running' && now - session.lastActivity > SESSION_TIMEOUT) {
-        terminateSession(id, 'timeout');
+        terminateSession(id, 'terminated');
       }
     }
   }, HEARTBEAT_INTERVAL);
@@ -57,7 +57,7 @@ export function createSession(path: string): Session {
   const session: PtySession = {
     id,
     path,
-    status: 'idle', // Will become 'running' when PTY starts
+    status: 'created', // Will become 'running' when PTY starts
     createdAt: now,
     lastActivity: now,
     claudeCommand: config.claudeCommand,
@@ -163,19 +163,20 @@ function startPty(sessionId: string, cols: number, rows: number): boolean {
       console.log(`[terminal] PTY exited: sessionId=${sessionId} code=${exitCode} signal=${signal}`);
 
       session.process = undefined;
-      session.status = exitCode === 0 ? 'idle' : 'error';
+      session.status = 'exited';
       session.lastActivity = Date.now();
 
-      callbacks?.onStatusChange?.(session.status);
+      callbacks?.onStatusChange?.('exited');
       callbacks?.onExit?.(exitCode, signal);
     });
 
     return true;
   } catch (error) {
     console.error(`[terminal] Failed to start PTY:`, error);
-    session.status = 'error';
+    session.status = 'exited';
     const callbacks = sessionCallbacks.get(sessionId);
     callbacks?.onError?.(error instanceof Error ? error.message : 'Failed to start PTY');
+    callbacks?.onStatusChange?.('exited');
     return false;
   }
 }

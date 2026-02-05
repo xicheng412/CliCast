@@ -20,7 +20,7 @@ function startHeartbeat() {
     const now = Date.now();
     for (const [id, session] of sessions) {
       if (session.status === 'running' && now - session.lastActivity > SESSION_TIMEOUT) {
-        terminateSession(id, 'timeout');
+        terminateSession(id, 'terminated');
       }
     }
   }, HEARTBEAT_INTERVAL);
@@ -40,7 +40,7 @@ export function createSession(path: string, claudeCommand: string): Session {
   const session: SessionRecord = {
     id,
     path,
-    status: 'idle',
+    status: 'created',
     createdAt: now,
     lastActivity: now,
     outputBuffer: '',
@@ -157,28 +157,18 @@ export async function sendMessage(
 
     proc.on('close', (code) => {
       session.process = undefined;
-
-      if (code === 0) {
-        session.status = 'idle';
-        onStatusChange('idle');
-      } else if (code === null || code === undefined) {
-        session.status = 'error';
-        onStatusChange('error');
-      } else {
-        session.status = 'error';
-        onStatusChange('error');
-      }
-
+      session.status = 'exited';
       session.lastActivity = Date.now();
+      onStatusChange('exited');
       resolve(true);
     });
 
     proc.on('error', (err) => {
       session.process = undefined;
-      session.status = 'error';
+      session.status = 'exited';
       session.lastActivity = Date.now();
       onError(`Process error: ${err.message}`);
-      onStatusChange('error');
+      onStatusChange('exited');
       resolve(false);
     });
   });

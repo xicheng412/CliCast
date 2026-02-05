@@ -8,6 +8,10 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["bun-types", "node"]
+    "types": ["bun-types", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@online-cc/types": ["shared/types/index.ts"]
+    }
   }
 }

@@ -71,7 +71,6 @@
         foreground: '#ffffff',
         cursor: '#ffffff',
         cursorAccent: '#1e1e1e',
-        selection: '#264f78',
         black: '#2d2d2d',
         red: '#f14c4c',
         green: '#23d18b',
@@ -122,8 +121,16 @@
       },
       onStatus: (status: SessionStatus) => {
         console.log('[session] Status:', status);
-        if (status === 'error') {
-          terminal?.write('\r\n[Session error]\r\n');
+        switch (status) {
+          case 'exited':
+            terminal?.write('\r\n[Session exited]\r\n');
+            break;
+          case 'terminated':
+            terminal?.write('\r\n[Session terminated]\r\n');
+            break;
+          case 'created':
+            terminal?.write('\r\n[Session created]\r\n');
+            break;
         }
       },
       onError: (message) => {

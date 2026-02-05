@@ -31,7 +31,12 @@ export interface Breadcrumb {
 }
 
 // Session types
-export type SessionStatus = 'idle' | 'running' | 'error' | 'timeout' | 'terminated';
+// State machine:
+// - created: Session created, PTY not started yet
+// - running: PTY is running
+// - exited: PTY exited (normal or error)
+// - terminated: Manually terminated by user
+export type SessionStatus = 'created' | 'running' | 'exited' | 'terminated';
 
 export interface Session {
   id: string;
