@@ -10,10 +10,29 @@
   let terminal: Terminal;
   let fitAddon: FitAddon;
   let connection: DevTerminalConnection;
+  let initSent = false;
   let status = $state<'connecting' | 'connected' | 'disconnected'>('connecting');
 
+  function initTerminal() {
+    if (initSent) return;
+
+    fitAddon.fit();
+    const dims = fitAddon.proposeDimensions();
+    const cols = dims?.cols ?? terminal.cols ?? 80;
+    const rows = dims?.rows ?? terminal.rows ?? 24;
+
+    initSent = true;
+    connection.sendInit(cols, rows);
+    terminal.focus();
+  }
+
+  function handleError(error: Event | string) {
+    status = 'disconnected';
+    const message = typeof error === 'string' ? error : 'WebSocket error';
+    terminal?.writeln(`\r\n[dev-terminal] ${message}`);
+  }
+
   onMount(() => {
-    // Create xterm
     terminal = new Terminal({
       cursorBlink: true,
       fontSize: 14,
@@ -24,32 +43,31 @@
     terminal.loadAddon(fitAddon);
     terminal.open(terminalEl);
 
-    // Create connection
     connection = new DevTerminalConnection({
-      onReady: () => { status = 'connected'; },
+      onOpen: () => initTerminal(),
+      onReady: () => {
+        status = 'connected';
+      },
       onOutput: (data) => terminal.write(data),
-      onClose: () => { status = 'disconnected'; },
+      onError: (error) => handleError(error),
+      onClose: () => {
+        status = 'disconnected';
+      },
     });
 
-    // Bind input and resize
     terminal.onData((data) => connection.sendInput(data));
+
     const resizeObserver = new ResizeObserver(() => {
       fitAddon.fit();
-      if (connection.isConnected()) {
+      if (initSent && connection.isConnected()) {
         const dims = fitAddon.proposeDimensions();
         if (dims) connection.sendResize(dims.cols, dims.rows);
       }
     });
     resizeObserver.observe(terminalEl);
 
-    // Connect and initialize
+    requestAnimationFrame(() => fitAddon.fit());
     connection.connect();
-    setTimeout(() => {
-      fitAddon.fit();
-      const dims = fitAddon.proposeDimensions();
-      if (dims) connection.sendInit(dims.cols, dims.rows);
-      terminal.focus();
-    }, 100);
 
     return () => resizeObserver.disconnect();
   });

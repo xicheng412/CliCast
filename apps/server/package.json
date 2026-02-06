@@ -3,12 +3,13 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "bun run --env-file .env --watch src/index.ts"
+    "dev": "bun run --env-file .env --watch src/index.ts",
+    "check:pty": "bun scripts/check-bun-pty.ts"
   },
   "dependencies": {
     "@online-cc/types": "workspace:*",
+    "bun-pty": "^0.4.8",
     "hono": "^4.6.0",
-    "node-pty": "^1.0.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {

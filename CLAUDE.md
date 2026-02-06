@@ -8,7 +8,7 @@ Web interface for accessing local Claude Code CLI from mobile/tablet devices on 
 
 ## Tech Stack
 
-- **Backend**: Hono + Bun + node-pty + ws
+- **Backend**: Hono + Bun + bun-pty + ws
 - **Frontend**: Svelte 5 + Vite + xterm.js
 
 ## Structure

@@ -1,5 +1,5 @@
-import * as pty from 'node-pty';
-import type { IPty } from 'node-pty';
+import { spawn, type IPty } from 'bun-pty';
+import { existsSync, statSync } from 'fs';
 
 let devPty: IPty | null = null;
 const clients = new Set<(data: string) => void>();
@@ -13,15 +13,15 @@ export function getOrCreate(cols: number, rows: number): { isNew: boolean } {
     return { isNew: false };
   }
 
-  const shell = process.env.SHELL || '/bin/bash';
-  const home = process.env.HOME || '/';
+  const shell = resolveShellPath();
+  const cwd = resolveWorkingDirectory();
 
-  devPty = pty.spawn(shell, [], {
+  devPty = spawn(shell, [], {
     name: 'xterm-256color',
     cols,
     rows,
-    cwd: home,
-    env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' },
+    cwd,
+    env: buildPtyEnv(),
   });
 
   devPty.onData((data) => {
@@ -33,6 +33,55 @@ export function getOrCreate(cols: number, rows: number): { isNew: boolean } {
   });
 
   return { isNew: true };
+}
+
+function buildPtyEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(process.env)) {
+    if (typeof value === 'string') {
+      env[key] = value;
+    }
+  }
+
+  env.TERM = 'xterm-256color';
+  env.COLORTERM = 'truecolor';
+
+  return env;
+}
+
+function resolveShellPath(): string {
+  const candidates = [process.env.SHELL, '/bin/zsh', '/bin/bash', '/bin/sh'];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    try {
+      if (existsSync(candidate) && statSync(candidate).isFile()) {
+        return candidate;
+      }
+    } catch {
+      // ignore invalid candidate
+    }
+  }
+
+  return '/bin/sh';
+}
+
+function resolveWorkingDirectory(): string {
+  const candidates = [process.env.HOME, process.cwd(), '/'];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    try {
+      if (existsSync(candidate) && statSync(candidate).isDirectory()) {
+        return candidate;
+      }
+    } catch {
+      // ignore invalid candidate
+    }
+  }
+
+  return '/';
 }
 
 export function write(data: string): void {
@@ -50,7 +99,7 @@ export function subscribe(callback: (data: string) => void): () => void {
 
 export function kill(): void {
   if (devPty) {
-    devPty.kill('SIGKILL');
+    devPty.kill();
     devPty = null;
   }
 }

@@ -203,8 +203,17 @@ const server = Bun.serve({
     },
     message(ws: any, message: string | Buffer) {
       if (ws.data.type === 'dev') {
+        let msg: any;
+
         try {
-          const msg = JSON.parse(message.toString());
+          msg = JSON.parse(message.toString());
+        } catch (error) {
+          console.error('[ws/dev] Failed to parse message:', error);
+          ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
+          return;
+        }
+
+        try {
           switch (msg.type) {
             case 'init': {
               const { isNew } = devTerminal.getOrCreate(msg.cols, msg.rows);
@@ -225,9 +234,13 @@ const server = Bun.serve({
               devTerminal.kill();
               ws.send(JSON.stringify({ type: 'killed' }));
               break;
+            default:
+              ws.send(JSON.stringify({ type: 'error', message: 'Unknown dev terminal message type' }));
           }
-        } catch (e) {
-          console.error('[ws/dev] Failed to parse message:', e);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to handle dev terminal message';
+          console.error('[ws/dev] Failed to handle message:', error);
+          ws.send(JSON.stringify({ type: 'error', message }));
         }
       } else {
         websocketHandlers.message(ws, message);

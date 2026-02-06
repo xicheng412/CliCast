@@ -1,10 +1,10 @@
-import * as pty from 'node-pty';
+import { spawn, type IPty } from 'bun-pty';
 import { randomUUID } from 'crypto';
 import { getConfig } from './config.js';
 import type { Session, SessionStatus } from '@online-cc/types';
 
 interface PtySession extends Session {
-  process?: pty.IPty;
+  process?: IPty;
   ptyName?: string;
   claudeCommand?: string;
 }
@@ -117,6 +117,20 @@ function parseCommand(command: string, cwd: string): string[] {
   return ['bash', '-c', `cd "${cwd}" && ${command}`];
 }
 
+function buildPtyEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (typeof value === 'string') {
+      env[key] = value;
+    }
+  }
+
+  env.TERM = 'xterm-color';
+  env.COLORTERM = 'truecolor';
+
+  return env;
+}
+
 function startPty(sessionId: string, cols: number, rows: number): boolean {
   const session = sessions.get(sessionId);
   if (!session) return false;
@@ -130,16 +144,12 @@ function startPty(sessionId: string, cols: number, rows: number): boolean {
   console.log(`[terminal] Starting PTY: ${shell} ${args.join(' ')} in ${cwd} (${cols}x${rows})`);
 
   try {
-    const ptyProcess = pty.spawn(shell, args, {
+    const ptyProcess = spawn(shell, args, {
       name: 'xterm-color',
       cols,
       rows,
       cwd: cwd,
-      env: {
-        ...process.env,
-        TERM: 'xterm-color',
-        COLORTERM: 'truecolor',
-      },
+      env: buildPtyEnv(),
     });
 
     session.process = ptyProcess;
@@ -167,7 +177,7 @@ function startPty(sessionId: string, cols: number, rows: number): boolean {
       session.lastActivity = Date.now();
 
       callbacks?.onStatusChange?.('exited');
-      callbacks?.onExit?.(exitCode, signal);
+      callbacks?.onExit?.(exitCode);
     });
 
     return true;
@@ -212,7 +222,7 @@ export function terminateSession(sessionId: string, reason: SessionStatus = 'ter
   console.log(`[terminal] Terminating session ${sessionId}: ${reason}`);
 
   if (session.process) {
-    session.process.kill('SIGTERM');
+    session.process.kill();
     session.process = undefined;
   }
 
