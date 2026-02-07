@@ -15,20 +15,28 @@
   let terminalContainer: HTMLDivElement;
   let fitAddon: FitAddon | null = null;
   let resizeObserver: ResizeObserver | null = null;
-  let mounted = false;
 
-  function sendResize() {
-    if (!fitAddon) return;
+  function getDimensions(): { cols: number; rows: number } | null {
+    const cols = terminal.cols;
+    const rows = terminal.rows;
+
+    if (cols > 0 && rows > 0) {
+      return { cols, rows };
+    }
+
+    if (!fitAddon) return null;
 
     const dims = fitAddon.proposeDimensions();
+    if (!dims) return null;
+
+    return { cols: dims.cols, rows: dims.rows };
+  }
+
+  function sendResize() {
+    const dims = getDimensions();
     if (dims) {
       onResize?.(dims.cols, dims.rows);
     }
-  }
-
-  function getDimensions(): { cols: number; rows: number } | null {
-    if (!fitAddon) return null;
-    return fitAddon.proposeDimensions() || null;
   }
 
   onMount(() => {
@@ -51,19 +59,20 @@
     });
     resizeObserver.observe(terminalContainer);
 
-    // Fit after a short delay and notify ready
-    setTimeout(() => {
-      if (fitAddon) {
-        fitAddon.fit();
-        const dims = getDimensions();
-        if (dims) {
-          onReady?.(dims.cols, dims.rows);
+    // Wait for layout to settle, then fit and notify ready dimensions.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (fitAddon) {
+          fitAddon.fit();
+          const dims = getDimensions();
+          if (dims) {
+            onReady?.(dims.cols, dims.rows);
+            onResize?.(dims.cols, dims.rows);
+          }
+          terminal.focus();
         }
-        terminal.focus();
-      }
-    }, 100);
-
-    mounted = true;
+      });
+    });
   });
 
   onDestroy(() => {
@@ -77,10 +86,11 @@
 
 <style>
   .terminal-wrapper {
+    flex: 1;
     width: 100%;
     height: 100%;
+    min-height: 0;
     overflow: hidden;
-    padding: 8px;
   }
 
   .terminal-wrapper :global(.xterm) {
@@ -89,5 +99,6 @@
 
   .terminal-wrapper :global(.xterm-viewport) {
     overflow-y: auto !important;
+    overflow-x: hidden !important;
   }
 </style>

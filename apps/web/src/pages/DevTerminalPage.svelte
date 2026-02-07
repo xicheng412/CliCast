@@ -98,7 +98,8 @@
   .dev-terminal-page {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     background: #1e1e1e;
   }
   .header {
@@ -138,6 +139,7 @@
   }
   .terminal-container {
     flex: 1;
-    padding: 8px;
+    min-height: 0;
+    overflow: hidden;
   }
 </style>

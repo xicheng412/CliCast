@@ -22,6 +22,7 @@ body {
   background-color: var(--bg-color);
   color: var(--text-color);
   line-height: 1.6;
+  overflow-x: hidden;
 }
 
 button {
@@ -139,4 +140,15 @@ input[type="password"]:focus {
   50% {
     opacity: 0.5;
   }
+}
+
+/* Hide xterm horizontal scrollbar */
+.xterm-viewport::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.xterm-viewport {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }

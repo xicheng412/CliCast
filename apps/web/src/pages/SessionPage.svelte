@@ -3,7 +3,7 @@
   import { sessionsStore } from '../stores/index.js';
   import type { Session, SessionStatus } from '@online-cc/types';
   import { Terminal } from 'xterm';
-  import TerminalComponent from '../components/Terminal.svelte';
+  import { FitAddon } from 'xterm-addon-fit';
   import { WebSocketManager } from '../lib/WebSocketManager';
   import { onMount, onDestroy } from 'svelte';
 
@@ -21,10 +21,53 @@
 
   let terminal: Terminal | null = $state(null);
   let wsManager: WebSocketManager | null = null;
+  let fitAddon: FitAddon | null = null;
+  let resizeObserver: ResizeObserver | null = null;
+  let terminalEl: HTMLDivElement | null = $state(null);
+  let terminalInitialized = $state(false);
+
   let connected = $state(false);
   let sessionClosed = $state(false);
   let terminalReady = $state(false);
   let pendingDimensions: { cols: number; rows: number } | null = null;
+
+  function getCurrentDimensions(
+    fallback?: { cols: number; rows: number }
+  ): { cols: number; rows: number } | null {
+    const cols = terminal?.cols ?? pendingDimensions?.cols ?? fallback?.cols ?? 0;
+    const rows = terminal?.rows ?? pendingDimensions?.rows ?? fallback?.rows ?? 0;
+
+    if (cols > 0 && rows > 0) {
+      return { cols, rows };
+    }
+
+    const dims = fitAddon?.proposeDimensions();
+    if (dims) {
+      return { cols: dims.cols, rows: dims.rows };
+    }
+
+    return null;
+  }
+
+  function syncTerminalSize() {
+    if (!fitAddon) return;
+
+    fitAddon.fit();
+
+    const dims = getCurrentDimensions();
+    if (!dims) return;
+
+    pendingDimensions = dims;
+    terminalReady = true;
+
+    if (wsManager?.isConnected()) {
+      if (wsManager.isInitialized()) {
+        wsManager.sendResize(dims.cols, dims.rows);
+      } else {
+        wsManager.sendInit(dims.cols, dims.rows);
+      }
+    }
+  }
 
   function getActiveSession(): Session | null {
     const activeId = currentSessionsState.activeSessionId;
@@ -51,6 +94,35 @@
     if (wsUrl && terminalReady && !wsManager) {
       connectWebSocket(wsUrl);
     }
+  });
+
+  // Open xterm directly in session container (same structure as dev terminal page)
+  $effect(() => {
+    if (!terminal || !terminalEl || terminalInitialized) {
+      return;
+    }
+
+    fitAddon = new FitAddon();
+    terminal.loadAddon(fitAddon);
+    terminal.open(terminalEl);
+
+    terminal.onData((data) => {
+      wsManager?.sendInput(data);
+    });
+
+    resizeObserver = new ResizeObserver(() => {
+      syncTerminalSize();
+    });
+    resizeObserver.observe(terminalEl);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        syncTerminalSize();
+        terminal?.focus();
+      });
+    });
+
+    terminalInitialized = true;
   });
 
   // Handle deep-link: if sessionId is provided but not active, try to activate it
@@ -93,6 +165,8 @@
   });
 
   onDestroy(() => {
+    resizeObserver?.disconnect();
+
     if (wsManager) {
       wsManager.disconnect();
       wsManager = null;
@@ -108,13 +182,21 @@
       onConnect: () => {
         console.log('[session] WebSocket connected');
         connected = true;
-        // Send init with dimensions if terminal is ready
-        if (pendingDimensions && !wsManager?.isInitialized()) {
-          wsManager?.sendInit(pendingDimensions.cols, pendingDimensions.rows);
+
+        if (!wsManager?.isInitialized()) {
+          const dims = getCurrentDimensions();
+          if (dims) {
+            wsManager?.sendInit(dims.cols, dims.rows);
+          }
         }
       },
       onReady: (sid) => {
         console.log('[session] Terminal ready:', sid);
+
+        const dims = getCurrentDimensions();
+        if (dims) {
+          wsManager?.sendResize(dims.cols, dims.rows);
+        }
       },
       onOutput: (data) => {
         terminal?.write(data);
@@ -151,26 +233,6 @@
     wsManager.connect();
   }
 
-  // Called when Terminal component is ready with dimensions
-  function handleTerminalReady(cols: number, rows: number) {
-    console.log('[session] Terminal component ready:', cols, 'x', rows);
-    terminalReady = true;
-    pendingDimensions = { cols, rows };
-
-    // If WebSocket is already connected, send init
-    if (wsManager?.isConnected() && !wsManager.isInitialized()) {
-      wsManager.sendInit(cols, rows);
-    }
-  }
-
-  function handleTerminalData(data: string) {
-    wsManager?.sendInput(data);
-  }
-
-  function handleResize(cols: number, rows: number) {
-    wsManager?.sendResize(cols, rows);
-  }
-
   function handleCloseTerminal() {
     if (currentSessionsState.activeSessionId) {
       sessionsStore.delete(currentSessionsState.activeSessionId);
@@ -192,14 +254,7 @@
         <button onclick={handleCloseTerminal} class="close-button">Close Session</button>
       </div>
     </div>
-    <div class="terminal-container">
-      <TerminalComponent
-        {terminal}
-        onData={handleTerminalData}
-        onResize={handleResize}
-        onReady={handleTerminalReady}
-      />
-    </div>
+    <div class="terminal-container" bind:this={terminalEl}></div>
   </div>
 {:else}
   <div class="no-session">
@@ -214,7 +269,8 @@
   .session-page {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     background: #1e1e1e;
   }
 
@@ -275,6 +331,7 @@
 
   .terminal-container {
     flex: 1;
+    min-height: 0;
     overflow: hidden;
   }
 
