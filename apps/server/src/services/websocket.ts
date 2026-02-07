@@ -1,5 +1,5 @@
 import type { ServerWebSocket } from 'bun';
-import type { ClientMessage, ServerMessage } from '@online-cc/types';
+import type { ClientMessage, ServerMessage } from '@clicast/types';
 import {
   sessionExists,
   initializeTerminal,

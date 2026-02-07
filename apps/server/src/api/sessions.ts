@@ -3,7 +3,7 @@ import { createSession, getSessions, getSession, deleteSession, terminateSession
 import { getConfig } from '../services/config.js';
 import { validatePath, listDir } from '../services/file.js';
 import { authMiddleware } from '../services/auth.js';
-import type { ApiResponse, Session, CreateSessionRequest } from '@online-cc/types';
+import type { ApiResponse, Session, CreateSessionRequest } from '@clicast/types';
 
 const app = new Hono();
 

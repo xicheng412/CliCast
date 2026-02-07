@@ -1,5 +1,5 @@
 import { writable, type Writable } from 'svelte/store';
-import type { Config, Breadcrumb, Session, FileEntry } from '@online-cc/types';
+import type { Config, Breadcrumb, Session, FileEntry } from '@clicast/types';
 import { api, type TerminalSession } from './api';
 import { authStore } from './auth';
 

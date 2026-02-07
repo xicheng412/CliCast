@@ -1,4 +1,4 @@
-import type { ClientMessage, ServerMessage, SessionStatus } from '@online-cc/types';
+import type { ClientMessage, ServerMessage, SessionStatus } from '@clicast/types';
 import { authStore } from '../stores/auth.js';
 
 export interface WebSocketCallbacks {

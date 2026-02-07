@@ -1,10 +1,10 @@
-# online-cc
+# CliCast
 
-Web interface for Claude Code CLI.
+Web interface for AI CLI Commands.
 
 ## Overview
 
-This project provides a web-based interface to interact with Claude Code CLI. It uses Server-Sent Events (SSE) to stream command output in real-time from the backend to the frontend.
+This project provides a web-based interface to interact with AI CLI Commands. It uses Server-Sent Events (SSE) to stream command output in real-time from the backend to the frontend.
 
 ## Tech Stack
 
@@ -15,7 +15,7 @@ This project provides a web-based interface to interact with Claude Code CLI. It
 ## Project Structure
 
 ```
-online-cc/
+clicast/
 ├── apps/
 │   ├── server/                    # Backend API (Hono + Bun)
 │   └── web/                       # Frontend (Svelte + Vite)
@@ -48,7 +48,7 @@ Server runs at `http://localhost:3000`.
 ```
 Frontend (Svelte)  ←→  SSE  ←→  Backend (Hono/Bun)
                                       ↓
-                              Claude Code CLI
+                              AI CLI Command
 ```
 
 ## Notes

@@ -1,7 +1,7 @@
 import { writable, get } from 'svelte/store';
 import { api, setAuthToken } from './api.js';
 
-const TOKEN_KEY = 'online-cc-token';
+const TOKEN_KEY = 'clicast-token';
 
 interface AuthState {
   token: string | null;

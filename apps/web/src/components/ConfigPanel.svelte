@@ -1,7 +1,7 @@
 <script lang="ts">
   import { configStore, authStore } from '../stores/index.js';
   import { router } from '../router.js';
-  import type { Config } from '@online-cc/types';
+  import type { Config } from '@clicast/types';
 
   let localConfig = $state<Partial<Config>>({});
   let isSaving = $state(false);
@@ -123,15 +123,15 @@
   <h2>Configuration</h2>
 
   <div class="form-section">
-    <label for="claudeCommand">Claude Command</label>
+    <label for="aiCommand">AI CLI Command</label>
     <input
-      id="claudeCommand"
+      id="aiCommand"
       type="text"
-      bind:value={localConfig.claudeCommand}
+      bind:value={localConfig.aiCommand}
       placeholder="claude"
     />
     <p class="help">
-      The command used to start Claude Code. Default is "claude".
+      The command used to start the AI CLI. Default is "claude".
     </p>
   </div>
 

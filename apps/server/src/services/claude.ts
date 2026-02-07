@@ -1,6 +1,6 @@
 import { spawn, ChildProcess } from 'child_process';
 import { randomUUID } from 'crypto';
-import type { Session, SessionStatus } from '@online-cc/types';
+import type { Session, SessionStatus } from '@clicast/types';
 
 interface SessionRecord extends Session {
   process?: ChildProcess;
@@ -33,7 +33,7 @@ function stopHeartbeat() {
   }
 }
 
-export function createSession(path: string, claudeCommand: string): Session {
+export function createSession(path: string, aiCommand: string): Session {
   const id = randomUUID();
   const now = Date.now();
 
@@ -123,13 +123,13 @@ export async function sendMessage(
     return true;
   }
 
-  // Start Claude Code process
+  // Start AI CLI process
   session.status = 'running';
   session.lastActivity = Date.now();
   onStatusChange('running');
 
   return new Promise((resolve) => {
-    const parts = claudeCommandParts(session.path, message);
+    const parts = aiCommandParts(session.path, message);
     const proc = spawn(parts[0], parts.slice(1), {
       cwd: session.path,
       env: { ...process.env, NO_COLOR: '1' },
@@ -174,11 +174,11 @@ export async function sendMessage(
   });
 }
 
-function claudeCommandParts(cwd: string, message: string): string[] {
+function aiCommandParts(cwd: string, message: string): string[] {
   // This is a placeholder - in real implementation, we need to handle
-  // Claude Code's actual CLI interface
+  // the AI CLI's actual CLI interface
   // For now, just echo the message as a demonstration
-  return ['echo', `[Claude would process: ${message}]`];
+  return ['echo', `[AI would process: ${message}]`];
 }
 
 export function cleanupAllSessions() {

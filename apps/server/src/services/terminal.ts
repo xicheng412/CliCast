@@ -1,12 +1,12 @@
 import { spawn, type IPty } from 'bun-pty';
 import { randomUUID } from 'crypto';
 import { getConfig } from './config.js';
-import type { Session, SessionStatus } from '@online-cc/types';
+import type { Session, SessionStatus } from '@clicast/types';
 
 interface PtySession extends Session {
   process?: IPty;
   ptyName?: string;
-  claudeCommand?: string;
+  aiCommand?: string;
 }
 
 export interface TerminalCallbacks {
@@ -60,7 +60,7 @@ export function createSession(path: string): Session {
     status: 'created', // Will become 'running' when PTY starts
     createdAt: now,
     lastActivity: now,
-    claudeCommand: config.claudeCommand,
+    aiCommand: config.aiCommand,
   };
 
   sessions.set(id, session);
@@ -111,7 +111,7 @@ function parseCommand(command: string, cwd: string): string[] {
     const match = command.match(/--workdir\s+(\S+)/);
     const workdir = match ? match[1] : cwd;
     const rest = command.replace(/--workdir\s+(\S+)/, '').trim();
-    return ['bash', '-c', `cd "${workdir}" && ${rest || 'claude'}`];
+    return ['bash', '-c', `cd "${workdir}" && ${rest || command}`];
   }
 
   return ['bash', '-c', `cd "${cwd}" && ${command}`];
@@ -135,7 +135,7 @@ function startPty(sessionId: string, cols: number, rows: number): boolean {
   const session = sessions.get(sessionId);
   if (!session) return false;
 
-  const command = session.claudeCommand || 'claude';
+  const command = session.aiCommand || 'claude';
   const cwd = session.path;
   const commandParts = parseCommand(command, cwd);
   const shell = commandParts[0];

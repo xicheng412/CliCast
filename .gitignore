@@ -28,6 +28,8 @@ logs/
 *.session.json
 *.session/
 
+.clicast-token
+
 .env
 .env.local
 .env.*.local

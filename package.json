@@ -1,7 +1,7 @@
 {
-  "name": "online-cc",
+  "name": "clicast",
   "version": "1.0.0",
-  "description": "Web interface for Claude Code CLI",
+  "description": "Web interface for AI CLI Commands",
   "type": "module",
   "packageManager": "bun@1.1.0",
   "workspaces": ["apps/*", "packages/*"],

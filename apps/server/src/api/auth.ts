@@ -7,7 +7,7 @@ import {
   deleteToken,
   getTokenFilePath,
 } from '../services/token.js';
-import type { ApiResponse } from '@online-cc/types';
+import type { ApiResponse } from '@clicast/types';
 
 const app = new Hono();
 
@@ -200,7 +200,7 @@ app.get('/reset-command', async (c) => {
   const response: ApiResponse<{ command: string }> = {
     success: true,
     data: {
-      command: `rm "${tokenPath}" && bun online-cc reset-token`,
+      command: `rm "${tokenPath}" && bun clicast reset-token`,
     },
   };
   return c.json(response);

@@ -136,7 +136,7 @@ app.get('/*', (c) => {
     const html = `<!DOCTYPE html>
 <html>
 <head>
-  <title>Online Claude Code</title>
+  <title>CliCast</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
     .status { background: #e8f5e9; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
@@ -146,11 +146,11 @@ app.get('/*', (c) => {
   </style>
 </head>
 <body>
-  <h1>Online Claude Code</h1>
+  <h1>CliCast</h1>
   <div class="status">
     <strong>Status:</strong> Server is running<br>
     <strong>Configuration:</strong><br>
-    - Claude Command: <code>${config.claudeCommand}</code><br>
+    - AI Command: <code>${config.aiCommand}</code><br>
     - Allowed Directories: ${config.allowedDirs.length > 0 ? config.allowedDirs.join(', ') : 'All directories'}
   </div>
   <div class="auth-status">
@@ -189,7 +189,7 @@ const idleTimeoutEnv = Number.parseInt(process.env.BUN_IDLE_TIMEOUT || '', 10);
 const idleTimeoutSeconds = Number.isFinite(idleTimeoutEnv) && idleTimeoutEnv > 0 ? idleTimeoutEnv : 120;
 
 // Start the HTTP server with WebSocket support
-console.log(`Starting Online Claude Code server on port ${config.port}...`);
+console.log(`Starting CliCast server on port ${config.port}...`);
 console.log(`Local access: http://localhost:${config.port}`);
 
 const hasAuth = tokenFileExists();

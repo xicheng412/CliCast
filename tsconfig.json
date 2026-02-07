@@ -11,7 +11,7 @@
     "types": ["bun-types", "node"],
     "baseUrl": ".",
     "paths": {
-      "@online-cc/types": ["shared/types/index.ts"]
+      "@clicast/types": ["packages/types/index.ts"]
     }
   }
 }

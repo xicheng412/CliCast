@@ -1,7 +1,7 @@
-import type { Config } from '@online-cc/types';
+import type { Config } from '@clicast/types';
 
 const DEFAULT_PORT = 3000;
-const DEFAULT_CLAUDE_COMMAND = 'claude';
+const DEFAULT_AI_COMMAND = 'claude';
 
 let cachedConfig: Config | null = null;
 
@@ -18,11 +18,11 @@ export function getConfig(): Config {
   }
 
   const port = parseInt(process.env.PORT || '', 10) || DEFAULT_PORT;
-  const claudeCommand = process.env.CLAUDE_COMMAND || DEFAULT_CLAUDE_COMMAND;
+  const aiCommand = process.env.AI_COMMAND || DEFAULT_AI_COMMAND;
   const allowedDirs = parseAllowedDirs(process.env.ALLOWED_DIRS);
 
   cachedConfig = {
-    claudeCommand,
+    aiCommand,
     allowedDirs,
     port,
   };

@@ -1,6 +1,6 @@
 # Web
 
-Svelte + Vite frontend for online-cc.
+Svelte + Vite frontend for CliCast.
 
 ## Structure
 

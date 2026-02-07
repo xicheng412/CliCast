@@ -2,9 +2,9 @@
 
 ## Overview
 
-Web interface for accessing local Claude Code CLI from mobile/tablet devices on the same LAN.
+Web interface for accessing local AI CLI Commands from mobile/tablet devices on the same LAN.
 
-**Workflow**: User selects a directory in browser → Server launches Claude Code in that directory → Terminal output displayed in browser.
+**Workflow**: User selects a directory in browser → Server launches AI CLI Command in that directory → Terminal output displayed in browser.
 
 ## Tech Stack
 
@@ -14,7 +14,7 @@ Web interface for accessing local Claude Code CLI from mobile/tablet devices on 
 ## Structure
 
 ```
-online-cc/
+clicast/
 ├── apps/server/src/
 │   ├── index.ts        # Entry point, Bun.serve
 │   ├── api/            # Routes: config, dirs, sessions
@@ -23,14 +23,14 @@ online-cc/
 │   ├── App.svelte      # Main component
 │   ├── lib/            # components: Terminal, FileManager, ConfigPanel
 │   └── stores/         # stores + api client
-└── shared/types/       # Shared types
+└── packages/types/     # Shared types
 ```
 
 ## Import Conventions
 
 ```typescript
 // Server
-import type { ApiResponse } from '@online-cc/types';  // workspace package
+import type { ApiResponse } from '@clicast/types';  // workspace package
 import { y } from '../services/file.js';              // relative
 
 // Web

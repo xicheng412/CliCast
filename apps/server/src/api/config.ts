@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { getConfig, updateConfig } from '../services/config.js';
 import { authMiddleware } from '../services/auth.js';
-import type { ApiResponse, Config, ConfigUpdate } from '@online-cc/types';
+import type { ApiResponse, Config, ConfigUpdate } from '@clicast/types';
 
 const app = new Hono();
 

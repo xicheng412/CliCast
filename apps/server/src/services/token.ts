@@ -1,12 +1,9 @@
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import { createHash } from 'crypto';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-// Token file location: ~/.online-cc-token or project directory .online-cc-token
-const TOKEN_FILE = process.env.TOKEN_FILE || join(process.env.HOME || __dirname, '.online-cc-token');
+// Token file location: project directory .clicast-token (or custom via TOKEN_FILE env)
+const TOKEN_FILE = process.env.TOKEN_FILE || join(process.cwd(), '.clicast-token');
 
 /**
  * Hash a token using SHA-256

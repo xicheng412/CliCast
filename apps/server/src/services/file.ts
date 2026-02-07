@@ -1,6 +1,6 @@
 import { readdirSync, statSync, lstatSync } from 'fs';
 import { join, relative, basename, dirname } from 'path';
-import type { FileEntry, Breadcrumb, DirResponse } from '@online-cc/types';
+import type { FileEntry, Breadcrumb, DirResponse } from '@clicast/types';
 
 export function listDir(path: string): DirResponse {
   try {

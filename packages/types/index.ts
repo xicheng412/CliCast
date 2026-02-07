@@ -1,12 +1,12 @@
 // Configuration types
 export interface Config {
-  claudeCommand: string;
+  aiCommand: string;
   allowedDirs: string[];
   port: number;
 }
 
 export interface ConfigUpdate {
-  claudeCommand?: string;
+  aiCommand?: string;
   allowedDirs?: string[];
   port?: number;
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { router } from '../router';
   import { sessionsStore } from '../stores/index.js';
-  import type { Session, SessionStatus } from '@online-cc/types';
+  import type { Session, SessionStatus } from '@clicast/types';
   import { Terminal } from 'xterm';
   import { FitAddon } from 'xterm-addon-fit';
   import { WebSocketManager } from '../lib/WebSocketManager';

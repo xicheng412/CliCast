@@ -1,5 +1,5 @@
 {
-  "name": "online-cc-web",
+  "name": "clicast-web",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
@@ -8,7 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@online-cc/types": "workspace:*",
+    "@clicast/types": "workspace:*",
     "svelte": "^5.0.0",
     "xterm": "^5.3.0",
     "xterm-addon-fit": "^0.8.0"

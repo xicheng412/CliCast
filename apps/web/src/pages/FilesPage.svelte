@@ -1,6 +1,6 @@
 <script lang="ts">
   import { sessionsStore } from '../stores/index.js';
-  import type { Session } from '@online-cc/types';
+  import type { Session } from '@clicast/types';
   import { router } from '../router.js';
   import FileManager from '../components/FileManager.svelte';
 

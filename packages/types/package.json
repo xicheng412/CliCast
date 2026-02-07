@@ -1,9 +1,11 @@
 {
-  "name": "@online-cc/types",
+  "name": "@clicast/types",
   "version": "1.0.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
-  },
-  "types": "./src/index.ts"
+    ".": {
+      "types": "./index.ts",
+      "import": "./index.ts"
+    }
+  }
 }

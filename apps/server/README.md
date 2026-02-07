@@ -1,6 +1,6 @@
 # Server
 
-Hono + Bun backend for online-cc.
+Hono + Bun backend for CliCast.
 
 ## Structure
 
@@ -11,7 +11,7 @@ src/
 │   ├── dirs.ts         # GET /api/dirs
 │   └── sessions.ts     # Session CRUD + SSE stream
 ├── services/
-│   ├── claude.ts       # Claude CLI execution
+│   ├── aiCommand.ts    # AI CLI execution
 │   ├── config.ts       # Config file operations
 │   ├── devTerminal.ts  # Dev terminal PTY management
 │   └── file.ts         # File system operations

@@ -111,7 +111,7 @@
       </svg>
     </div>
 
-    <h1>Online Claude Code</h1>
+    <h1>CliCast</h1>
 
     {#if loading && mode === 'init' && !token}
       <p class="loading-text">Checking authentication status...</p>

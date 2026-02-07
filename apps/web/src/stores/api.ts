@@ -1,4 +1,4 @@
-import type { Config, DirResponse, Breadcrumb, Session } from '@online-cc/types';
+import type { Config, DirResponse, Breadcrumb, Session } from '@clicast/types';
 
 const API_BASE = '/api';
 

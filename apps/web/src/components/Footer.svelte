@@ -5,10 +5,10 @@
 </script>
 
 <footer class="footer">
-  <span>Online Claude Code</span>
+  <span>CliCast</span>
   {#if currentConfig}
     <span class="config-info">
-      Command: <code>{currentConfig.claudeCommand}</code>
+      Command: <code>{currentConfig.aiCommand}</code>
     </span>
   {/if}
 </footer>
