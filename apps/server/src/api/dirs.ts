@@ -1,9 +1,12 @@
 import { Hono } from 'hono';
 import { listDir, getBreadcrumbs, getRootDirs, getHomeDir, validatePath } from '../services/file.js';
 import { getConfig } from '../services/config.js';
+import { authMiddleware } from '../services/auth.js';
 import type { ApiResponse, DirResponse, Breadcrumb } from '@online-cc/types';
 
 const app = new Hono();
+
+app.use('/*', authMiddleware);
 
 app.get('/', async (c) => {
   try {

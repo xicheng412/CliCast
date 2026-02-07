@@ -1,8 +1,11 @@
 import { Hono } from 'hono';
 import { getConfig, updateConfig } from '../services/config.js';
+import { authMiddleware } from '../services/auth.js';
 import type { ApiResponse, Config, ConfigUpdate } from '@online-cc/types';
 
 const app = new Hono();
+
+app.use('/*', authMiddleware);
 
 app.get('/', async (c) => {
   try {

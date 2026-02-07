@@ -7,12 +7,29 @@ import { readFileSync, existsSync, statSync } from 'fs';
 import configApi from './api/config.js';
 import dirsApi from './api/dirs.js';
 import sessionsApi from './api/sessions.js';
+import authApi from './api/auth.js';
 import { getConfig } from './services/config.js';
 import { websocketHandlers, getUpgradeData, shutdown as shutdownWs } from './services/websocket.js';
 import { cleanupAllSessions } from './services/terminal.js';
 import * as devTerminal from './services/devTerminal.js';
+import { tokenFileExists, getTokenFilePath, verifyToken } from './services/token.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Handle reset-token CLI command
+const args = process.argv.slice(2);
+if (args[0] === 'reset-token') {
+  const { tokenFileExists, deleteToken, getTokenFilePath } = await import('./services/token.js');
+
+  if (tokenFileExists()) {
+    console.log('Removing existing token...');
+    deleteToken();
+    console.log('Token removed. Please restart the server if it is running.');
+  } else {
+    console.log('No token file found.');
+  }
+  process.exit(0);
+}
 
 const app = new Hono();
 
@@ -27,6 +44,7 @@ app.use('/*', cors({
 app.route('/api/config', configApi);
 app.route('/api/dirs', dirsApi);
 app.route('/api/sessions', sessionsApi);
+app.route('/api/auth', authApi);
 
 // Health check
 app.get('/api/health', (c) => {
@@ -113,6 +131,8 @@ app.get('/*', (c) => {
   // If no built frontend, serve a simple status page
   try {
     const config = getConfig();
+    const hasAuth = tokenFileExists();
+    const tokenPath = getTokenFilePath();
     const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -120,6 +140,7 @@ app.get('/*', (c) => {
   <style>
     body { font-family: system-ui, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
     .status { background: #e8f5e9; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+    .auth-status { background: ${hasAuth ? '#e3f2fd' : '#fff3e0'}; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
     h1 { color: #333; }
     code { background: #f5f5f5; padding: 2px 6px; border-radius: 4px; }
   </style>
@@ -132,8 +153,16 @@ app.get('/*', (c) => {
     - Claude Command: <code>${config.claudeCommand}</code><br>
     - Allowed Directories: ${config.allowedDirs.length > 0 ? config.allowedDirs.join(', ') : 'All directories'}
   </div>
+  <div class="auth-status">
+    <strong>Authentication:</strong> ${hasAuth ? 'Enabled' : 'Not configured'}<br>
+    <small>Token file: ${tokenPath}</small>
+  </div>
   <h2>Available Endpoints</h2>
   <ul>
+    <li><code>GET /api/health</code> - Health check</li>
+    <li><code>GET /api/auth/status</code> - Check if token exists</li>
+    <li><code>POST /api/auth/init</code> - Create initial token</li>
+    <li><code>POST /api/auth/verify</code> - Verify token</li>
     <li><code>GET /api/config</code> - Get configuration</li>
     <li><code>PUT /api/config</code> - Update configuration</li>
     <li><code>GET /api/dirs?path=xxx</code> - List directory contents</li>
@@ -163,13 +192,28 @@ const idleTimeoutSeconds = Number.isFinite(idleTimeoutEnv) && idleTimeoutEnv > 0
 console.log(`Starting Online Claude Code server on port ${config.port}...`);
 console.log(`Local access: http://localhost:${config.port}`);
 
+const hasAuth = tokenFileExists();
+if (hasAuth) {
+  console.log('Authentication: enabled');
+} else {
+  console.log('Authentication: not configured (visit the app to set up)');
+}
+
 const server = Bun.serve({
   fetch(request, server) {
     const url = new URL(request.url);
 
     // Handle WebSocket upgrade for /ws/dev endpoint (dev terminal)
     if (url.pathname === '/ws/dev' && request.headers.get('upgrade') === 'websocket') {
-      const success = server.upgrade(request, { data: { type: 'dev' } as any });
+      const token = url.searchParams.get('token');
+
+      // Validate token for dev terminal
+      if (!token || !verifyToken(token)) {
+        console.log('[ws/dev] Upgrade rejected: invalid or missing token');
+        return new Response('Unauthorized: Invalid or missing token', { status: 401 });
+      }
+
+      const success = server.upgrade(request, { data: { type: 'dev', token } as any });
       if (success) {
         return undefined as unknown as Response;
       }
@@ -180,7 +224,7 @@ const server = Bun.serve({
     if (url.pathname === '/ws' && request.headers.get('upgrade') === 'websocket') {
       const upgradeData = getUpgradeData(request);
       if (!upgradeData) {
-        return new Response('Missing sessionId parameter', { status: 400 });
+        return new Response('Missing sessionId or invalid token', { status: 401 });
       }
 
       const success = server.upgrade(request, { data: { ...upgradeData, type: 'session' } as any });

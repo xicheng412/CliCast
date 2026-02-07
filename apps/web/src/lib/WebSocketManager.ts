@@ -1,4 +1,5 @@
 import type { ClientMessage, ServerMessage, SessionStatus } from '@online-cc/types';
+import { authStore } from '../stores/auth.js';
 
 export interface WebSocketCallbacks {
   onReady?: (sessionId: string) => void;
@@ -33,13 +34,21 @@ export class WebSocketManager {
     callbacks: WebSocketCallbacks,
     options: WebSocketManagerOptions = {}
   ) {
-    this.wsUrl = wsUrl;
     this.callbacks = callbacks;
     this.options = {
       maxReconnectAttempts: options.maxReconnectAttempts ?? 5,
       reconnectBaseDelay: options.reconnectBaseDelay ?? 1000,
       pingInterval: options.pingInterval ?? 30000,
     };
+
+    // Append token to WebSocket URL
+    const token = authStore.getToken();
+    if (token) {
+      const separator = wsUrl.includes('?') ? '&' : '?';
+      this.wsUrl = `${wsUrl}${separator}token=${encodeURIComponent(token)}`;
+    } else {
+      this.wsUrl = wsUrl;
+    }
   }
 
   connect(): void {

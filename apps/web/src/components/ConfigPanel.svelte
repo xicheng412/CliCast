@@ -1,11 +1,20 @@
 <script lang="ts">
-  import { configStore } from '../stores/index.js';
+  import { configStore, authStore } from '../stores/index.js';
   import type { Config } from '@online-cc/types';
 
   let localConfig = $state<Partial<Config>>({});
   let isSaving = $state(false);
   let saveError = $state<string | null>(null);
   let saveSuccess = $state(false);
+
+  // Token change state
+  let showTokenChange = $state(false);
+  let currentToken = $state('');
+  let newToken = $state('');
+  let confirmNewToken = $state('');
+  let tokenError = $state<string | null>(null);
+  let tokenSuccess = $state(false);
+  let isChangingToken = $state(false);
 
   // Reactive store access with $ prefix
   let currentConfig = $derived($configStore);
@@ -64,6 +73,42 @@
   function updateAllowedDir(index: number, value: string) {
     if (localConfig.allowedDirs) {
       localConfig.allowedDirs[index] = value;
+    }
+  }
+
+  async function handleChangeToken(e: Event) {
+    e.preventDefault();
+    tokenError = null;
+    tokenSuccess = false;
+
+    if (newToken.length < 8) {
+      tokenError = 'New token must be at least 8 characters';
+      return;
+    }
+
+    if (newToken !== confirmNewToken) {
+      tokenError = 'New tokens do not match';
+      return;
+    }
+
+    isChangingToken = true;
+    try {
+      const success = await authStore.updateToken(currentToken, newToken);
+      if (success) {
+        tokenSuccess = true;
+        // Log out after token change
+        setTimeout(() => {
+          authStore.logout();
+          // Redirect to trigger re-authentication
+          window.location.reload();
+        }, 1500);
+      } else {
+        tokenError = 'Current token is incorrect';
+      }
+    } catch (error) {
+      tokenError = error instanceof Error ? error.message : 'Failed to change token';
+    } finally {
+      isChangingToken = false;
     }
   }
 </script>
@@ -146,6 +191,84 @@
   {/if}
 </div>
 
+<div class="token-section">
+  <h2>Authentication</h2>
+  <p class="section-description">
+    Change your authentication token. You will need to log in again after changing.
+  </p>
+
+  {#if !showTokenChange}
+    <button onclick={() => (showTokenChange = true)} class="btn-secondary">
+      Change Token
+    </button>
+  {:else}
+    <form onsubmit={handleChangeToken} class="token-form">
+      <div class="form-group">
+        <label for="currentToken">Current Token</label>
+        <input
+          type="password"
+          id="currentToken"
+          bind:value={currentToken}
+          placeholder="Enter current token"
+          disabled={isChangingToken}
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="newToken">New Token</label>
+        <input
+          type="password"
+          id="newToken"
+          bind:value={newToken}
+          placeholder="At least 8 characters"
+          disabled={isChangingToken}
+          minlength="8"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="confirmNewToken">Confirm New Token</label>
+        <input
+          type="password"
+          id="confirmNewToken"
+          bind:value={confirmNewToken}
+          placeholder="Confirm new token"
+          disabled={isChangingToken}
+          minlength="8"
+        />
+      </div>
+
+      {#if tokenError}
+        <div class="message error">{tokenError}</div>
+      {/if}
+
+      {#if tokenSuccess}
+        <div class="message success">Token changed successfully! Please log in again.</div>
+      {/if}
+
+      <div class="token-actions">
+        <button
+          type="button"
+          onclick={() => {
+            showTokenChange = false;
+            currentToken = '';
+            newToken = '';
+            confirmNewToken = '';
+            tokenError = null;
+          }}
+          class="btn-secondary"
+          disabled={isChangingToken}
+        >
+          Cancel
+        </button>
+        <button type="submit" class="btn-primary" disabled={isChangingToken}>
+          {isChangingToken ? 'Changing...' : 'Change Token'}
+        </button>
+      </div>
+    </form>
+  {/if}
+</div>
+
 <style>
   .config-panel {
     padding: 20px;
@@ -199,6 +322,46 @@
     display: flex;
     gap: 12px;
     margin-top: 24px;
+  }
+
+  .token-section {
+    margin-top: 32px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border-color);
+  }
+
+  .token-section h2 {
+    margin-bottom: 8px;
+    font-size: 20px;
+  }
+
+  .section-description {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+
+  .token-form {
+    max-width: 400px;
+  }
+
+  .token-form .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .token-form .form-group label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .token-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
   }
 
   .message {

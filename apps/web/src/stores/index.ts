@@ -1,6 +1,7 @@
 import { writable, type Writable } from 'svelte/store';
 import type { Config, Breadcrumb, Session, FileEntry } from '@online-cc/types';
 import { api, type TerminalSession } from './api';
+import { authStore } from './auth';
 
 // Recent paths store
 function createRecentPathsStore() {
@@ -244,6 +245,9 @@ function createSessionsStore() {
 }
 
 export const sessionsStore = createSessionsStore();
+
+// Auth store
+export { authStore };
 
 // UI State
 export const viewMode = writable<'files' | 'config'>('files');

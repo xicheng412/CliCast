@@ -1,3 +1,5 @@
+import { authStore } from '../stores/auth.js';
+
 export interface DevTerminalCallbacks {
   onOpen?: () => void;
   onReady?: (isNew: boolean) => void;
@@ -21,7 +23,9 @@ export class DevTerminalConnection {
     }
 
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    this.ws = new WebSocket(`${protocol}//${location.host}/ws/dev`);
+    const token = authStore.getToken();
+    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
+    this.ws = new WebSocket(`${protocol}//${location.host}/ws/dev${tokenParam}`);
 
     this.ws.onopen = () => {
       this.flushPending();

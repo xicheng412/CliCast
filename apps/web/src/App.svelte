@@ -6,12 +6,15 @@
   import SettingsPage from './pages/SettingsPage.svelte';
   import SessionPage from './pages/SessionPage.svelte';
   import DevTerminalPage from './pages/DevTerminalPage.svelte';
+  import AuthPage from './pages/AuthPage.svelte';
   import { onMount } from 'svelte';
-  import { configStore, sessionsStore, dirStore } from './stores';
+  import { configStore, sessionsStore, dirStore, authStore } from './stores';
   import { api } from './stores/api.js';
   import './styles.css';
 
   let initialized = $state(false);
+  let checkingAuth = $state(true);
+  let isAuthenticated = $state(false);
   let routerState = $state(router.state);
 
   // 订阅路由变化
@@ -22,33 +25,71 @@
     return unsub;
   });
 
-  onMount(async () => {
-    await Promise.all([configStore.load(), sessionsStore.load()]);
-    const home = await api.getHomeDir();
-    await dirStore.navigateTo(home.path);
+  async function handleAuthenticated() {
+    checkingAuth = false;
+    isAuthenticated = true;
     initialized = true;
+    await loadAppData();
+  }
+
+  async function loadAppData() {
+    try {
+      await Promise.all([configStore.load(), sessionsStore.load()]);
+      const home = await api.getHomeDir();
+      await dirStore.navigateTo(home.path);
+    } catch (error) {
+      console.error('Failed to load app data:', error);
+    }
+  }
+
+  onMount(async () => {
+    checkingAuth = true;
+    try {
+      const status = await authStore.checkStatus();
+      if (status && authStore.hasStoredToken()) {
+        isAuthenticated = true;
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error);
+    } finally {
+      checkingAuth = false;
+    }
+
+    if (isAuthenticated) {
+      await loadAppData();
+      initialized = true;
+    }
   });
 </script>
 
 <div class="app">
-  <Header />
-  <main class="main">
-    {#if !initialized}
-      <div class="loading-screen">
-        <div class="spinner"></div>
-        <p>Loading...</p>
-      </div>
-    {:else if routerState.path === '/settings'}
-      <SettingsPage />
-    {:else if routerState.path === '/session'}
-      <SessionPage sessionId={routerState.params.sessionId} />
-    {:else if routerState.path === '/dev-terminal'}
-      <DevTerminalPage />
-    {:else}
-      <FilesPage />
-    {/if}
-  </main>
-  <Footer />
+  {#if checkingAuth}
+    <div class="loading-screen">
+      <div class="spinner"></div>
+      <p>Checking authentication...</p>
+    </div>
+  {:else if !isAuthenticated}
+    <AuthPage onAuthenticated={handleAuthenticated} />
+  {:else if !initialized}
+    <div class="loading-screen">
+      <div class="spinner"></div>
+      <p>Loading...</p>
+    </div>
+  {:else}
+    <Header />
+    <main class="main">
+      {#if routerState.path === '/settings'}
+        <SettingsPage />
+      {:else if routerState.path === '/session'}
+        <SessionPage sessionId={routerState.params.sessionId} />
+      {:else if routerState.path === '/dev-terminal'}
+        <DevTerminalPage />
+      {:else}
+        <FilesPage />
+      {/if}
+    </main>
+    <Footer />
+  {/if}
 </div>
 
 <style>

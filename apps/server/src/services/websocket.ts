@@ -7,9 +7,11 @@ import {
   resizeTerminal,
   unregisterCallbacks,
 } from './terminal.js';
+import { verifyToken } from './token.js';
 
 interface WsData {
   sessionId: string;
+  token: string;
   connectedAt: number;
   initialized: boolean;
 }
@@ -63,6 +65,7 @@ export const websocketHandlers = {
 export function getUpgradeData(request: Request): WsData | null {
   const url = new URL(request.url);
   const sessionId = url.searchParams.get('sessionId');
+  const token = url.searchParams.get('token');
 
   if (!sessionId) {
     console.log('[ws] Upgrade rejected: no sessionId');
@@ -75,8 +78,15 @@ export function getUpgradeData(request: Request): WsData | null {
     return null;
   }
 
+  // Validate token
+  if (!token || !verifyToken(token)) {
+    console.log('[ws] Upgrade rejected: invalid or missing token');
+    return null;
+  }
+
   return {
     sessionId,
+    token,
     connectedAt: Date.now(),
     initialized: false,
   };

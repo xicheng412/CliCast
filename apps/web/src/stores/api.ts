@@ -2,13 +2,25 @@ import type { Config, DirResponse, Breadcrumb, Session } from '@online-cc/types'
 
 const API_BASE = '/api';
 
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+}
+
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.headers as Record<string, string>),
+  };
+
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+
   const response = await fetch(url, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -90,5 +102,40 @@ export const api = {
       `${API_BASE}/sessions/${sessionId}/ws`
     );
     return response.data.wsUrl;
+  },
+
+  // Auth
+  async checkAuthStatus(): Promise<{ hasToken: boolean }> {
+    const response = await fetchJson<{ success: true; data: { hasToken: boolean } }>(
+      `${API_BASE}/auth/status`
+    );
+    return response.data;
+  },
+
+  async initToken(token: string): Promise<void> {
+    await fetchJson<{ success: true }>(`${API_BASE}/auth/init`, {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+  },
+
+  async verifyToken(token: string): Promise<void> {
+    const response = await fetchJson<{ success: true; data: { valid: boolean } }>(
+      `${API_BASE}/auth/verify`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+      }
+    );
+    if (!response.data.valid) {
+      throw new Error('Invalid token');
+    }
+  },
+
+  async updateToken(currentToken: string, newToken: string): Promise<void> {
+    await fetchJson<{ success: true }>(`${API_BASE}/auth`, {
+      method: 'PUT',
+      body: JSON.stringify({ currentToken, newToken }),
+    });
   },
 };
