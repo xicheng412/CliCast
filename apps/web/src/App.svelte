@@ -14,7 +14,6 @@
 
   let initialized = $state(false);
   let checkingAuth = $state(true);
-  let isAuthenticated = $state(false);
   let routerState = $state(router.state);
 
   // 订阅路由变化
@@ -25,9 +24,20 @@
     return unsub;
   });
 
+  // 订阅 authStore 状态
+  let authState = $state(authStore.getState());
+
+  $effect(() => {
+    const unsub = authStore.subscribe((state) => {
+      authState = state;
+    });
+    return unsub;
+  });
+
+  let isAuthenticated = $derived(authState.authenticated);
+
   async function handleAuthenticated() {
     checkingAuth = false;
-    isAuthenticated = true;
     initialized = true;
     await loadAppData();
   }

@@ -22,16 +22,20 @@
     loading = true;
     error = '';
     try {
-      const status = await authStore.checkStatus();
-      if (!status) {
+      await authStore.checkStatus();
+      // Check store state for hasToken (set by checkStatus)
+      const hasToken = authStore.getState().hasToken;
+      if (hasToken) {
+        // Server has token configured, show login mode
+        mode = 'login';
+      } else {
         // No token on server, show init mode
         mode = 'init';
-      } else {
-        // Token exists, show login mode
-        mode = 'login';
       }
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to check auth status';
+      // Default to init mode on error
+      mode = 'init';
     } finally {
       loading = false;
     }

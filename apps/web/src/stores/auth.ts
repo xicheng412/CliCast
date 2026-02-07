@@ -154,6 +154,10 @@ function createAuthStore() {
         hasToken: null,
         authenticated: false,
       });
+      // Navigate to /auth route
+      if (typeof window !== 'undefined') {
+        window.location.hash = '/auth';
+      }
     },
 
     /**
@@ -175,6 +179,13 @@ function createAuthStore() {
      */
     isAuthenticated(): boolean {
       return get({ subscribe }).authenticated;
+    },
+
+    /**
+     * Get current state
+     */
+    getState(): AuthState {
+      return get({ subscribe });
     },
   };
 }

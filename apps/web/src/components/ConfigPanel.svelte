@@ -1,5 +1,6 @@
 <script lang="ts">
   import { configStore, authStore } from '../stores/index.js';
+  import { router } from '../router.js';
   import type { Config } from '@online-cc/types';
 
   let localConfig = $state<Partial<Config>>({});
@@ -111,6 +112,11 @@
       isChangingToken = false;
     }
   }
+
+  function handleLogout() {
+    authStore.logout();
+    router.navigate('/auth');
+  }
 </script>
 
 <div class="config-panel">
@@ -198,9 +204,14 @@
   </p>
 
   {#if !showTokenChange}
-    <button onclick={() => (showTokenChange = true)} class="btn-secondary">
-      Change Token
-    </button>
+    <div class="auth-buttons">
+      <button onclick={() => (showTokenChange = true)} class="btn-secondary">
+        Change Token
+      </button>
+      <button onclick={handleLogout} class="btn-danger">
+        Logout
+      </button>
+    </div>
   {:else}
     <form onsubmit={handleChangeToken} class="token-form">
       <div class="form-group">
@@ -378,5 +389,31 @@
   .message.success {
     background: #dcfce7;
     color: #166534;
+  }
+
+  .auth-buttons {
+    display: flex;
+    gap: 12px;
+  }
+
+  .btn-danger {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background-color 0.2s;
+  }
+
+  .btn-danger:hover {
+    background: #dc2626;
+  }
+
+  .btn-danger:disabled {
+    background: #fca5a5;
+    cursor: not-allowed;
   }
 </style>
