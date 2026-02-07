@@ -270,12 +270,21 @@ const server = Bun.serve({
         try {
           switch (msg.type) {
             case 'init': {
-              const { isNew } = devTerminal.getOrCreate(msg.cols, msg.rows);
+              const { isNew, hasHistory } = devTerminal.getOrCreate(msg.cols, msg.rows);
+
+              // Send history output first
+              const history = devTerminal.getHistory();
+              if (history.length > 0) {
+                for (const chunk of history) {
+                  ws.send(JSON.stringify({ type: 'output', data: chunk }));
+                }
+              }
+
               const unsubscribe = devTerminal.subscribe((data) => {
                 ws.send(JSON.stringify({ type: 'output', data }));
               });
               ws.data.unsubscribe = unsubscribe;
-              ws.send(JSON.stringify({ type: 'ready', isNew }));
+              ws.send(JSON.stringify({ type: 'ready', isNew, hasHistory }));
               break;
             }
             case 'input':

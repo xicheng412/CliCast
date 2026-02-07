@@ -4,6 +4,7 @@ import { authStore } from '../stores/auth.js';
 export interface WebSocketCallbacks {
   onReady?: (sessionId: string) => void;
   onOutput?: (data: string) => void;
+  onHistory?: (history: string[]) => void;
   onStatus?: (status: SessionStatus, sessionId: string) => void;
   onError?: (message: string) => void;
   onExit?: (code: number, signal?: number) => void;
@@ -129,6 +130,9 @@ export class WebSocketManager {
         break;
       case 'output':
         this.callbacks.onOutput?.(message.data);
+        break;
+      case 'history':
+        this.callbacks.onHistory?.(message.data);
         break;
       case 'status':
         this.callbacks.onStatus?.(message.status, message.sessionId);

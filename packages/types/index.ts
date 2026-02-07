@@ -85,8 +85,9 @@ export type ClientMessage =
 
 // Server -> Client messages
 export type ServerMessage =
-  | { type: 'ready'; sessionId: string }
+  | { type: 'ready'; sessionId: string; hasHistory?: boolean }
   | { type: 'output'; data: string }
+  | { type: 'history'; data: string[] }
   | { type: 'status'; status: SessionStatus; sessionId: string }
   | { type: 'error'; message: string }
   | { type: 'exit'; code: number; signal?: number }

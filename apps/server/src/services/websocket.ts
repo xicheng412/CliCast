@@ -6,6 +6,7 @@ import {
   writeToTerminal,
   resizeTerminal,
   unregisterCallbacks,
+  getSessionHistory,
 } from './terminal.js';
 import { verifyToken } from './token.js';
 
@@ -156,6 +157,17 @@ function handleInit(ws: ServerWebSocket<WsData>, sessionId: string, cols: number
 
   if (success) {
     ws.data.initialized = true;
+
+    // Send history output first
+    const history = getSessionHistory(sessionId);
+    if (history.length > 0) {
+      const historyMessage = JSON.stringify({
+        type: 'history',
+        data: history,
+      });
+      ws.send(historyMessage);
+    }
+
     sendMessage(ws, { type: 'ready', sessionId });
   } else {
     sendMessage(ws, { type: 'error', message: 'Failed to initialize terminal' });

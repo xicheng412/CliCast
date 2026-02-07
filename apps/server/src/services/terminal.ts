@@ -7,6 +7,7 @@ interface PtySession extends Session {
   process?: IPty;
   ptyName?: string;
   aiCommand?: string;
+  outputHistory?: string[];
 }
 
 export interface TerminalCallbacks {
@@ -20,6 +21,20 @@ const sessions = new Map<string, PtySession>();
 const sessionCallbacks = new Map<string, TerminalCallbacks>();
 const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 const HEARTBEAT_INTERVAL = 30 * 1000; // 30 seconds
+const MAX_HISTORY_SIZE = 100 * 1024; // 100KB
+
+function trimSessionHistory(sessionId: string): void {
+  const session = sessions.get(sessionId);
+  if (!session?.outputHistory) return;
+  let totalSize = 0;
+  for (const chunk of session.outputHistory) {
+    totalSize += chunk.length;
+  }
+  while (totalSize > MAX_HISTORY_SIZE && session.outputHistory.length > 0) {
+    const removed = session.outputHistory.shift()!;
+    totalSize -= removed.length;
+  }
+}
 
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -156,6 +171,7 @@ function startPty(sessionId: string, cols: number, rows: number): boolean {
     session.ptyName = `pty-${sessionId}`;
     session.status = 'running';
     session.lastActivity = Date.now();
+    session.outputHistory = [];
 
     const callbacks = sessionCallbacks.get(sessionId);
 
@@ -166,6 +182,10 @@ function startPty(sessionId: string, cols: number, rows: number): boolean {
     ptyProcess.onData((data: string) => {
       session.lastActivity = Date.now();
       callbacks?.onOutput?.(data);
+      if (session.outputHistory) {
+        session.outputHistory.push(data);
+        trimSessionHistory(sessionId);
+      }
     });
 
     // Set up exit handler
@@ -286,4 +306,10 @@ export function cleanupAllSessions() {
     sessions.delete(id);
     sessionCallbacks.delete(id);
   }
+}
+
+// Get session output history
+export function getSessionHistory(sessionId: string): string[] {
+  const session = sessions.get(sessionId);
+  return session?.outputHistory ? [...session.outputHistory] : [];
 }

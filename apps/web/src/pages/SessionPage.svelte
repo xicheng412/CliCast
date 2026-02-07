@@ -201,6 +201,11 @@
       onOutput: (data) => {
         terminal?.write(data);
       },
+      onHistory: (history) => {
+        for (const line of history) {
+          terminal?.write(line);
+        }
+      },
       onStatus: (status: SessionStatus) => {
         console.log('[session] Status:', status);
         switch (status) {
