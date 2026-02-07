@@ -57,8 +57,13 @@ app.get('/assets/:path*', (c) => {
   const assetName = path.replace('/assets/', '');
 
   const possiblePaths = [
-    join(__dirname, '..', 'web', 'dist', 'assets', assetName),
+    // NPM package layout: dist/index.js + web/ (sibling directories)
+    join(__dirname, 'web', 'assets', assetName),
+    // Dev mode: running from apps/server/dist (clicast layout)
+    join(__dirname, '..', 'web', 'assets', assetName),
+    // Dev mode: running from apps/server with bun build --outdir dist
     join(process.cwd(), '..', 'apps', 'web', 'dist', 'assets', assetName),
+    // Dev mode: running from workspace root with apps/server/dist
     join(__dirname, '..', '..', 'apps', 'web', 'dist', 'assets', assetName),
   ];
 
@@ -109,10 +114,15 @@ app.get('/*', (c) => {
     return c.text('WebSocket endpoint', 200);
   }
 
-  // Try to serve from apps/web/dist (production)
+  // Try to serve from web/dist (production/NPM package)
   const possiblePaths = [
-    join(__dirname, '..', 'web', 'dist', 'index.html'),
+    // NPM package layout: dist/index.js + web/ (sibling directories)
+    join(__dirname, 'web', 'index.html'),
+    // Dev mode: running from apps/server/dist (clicast layout)
+    join(__dirname, '..', 'web', 'index.html'),
+    // Dev mode: running from apps/server with bun build --outdir dist
     join(process.cwd(), '..', 'apps', 'web', 'dist', 'index.html'),
+    // Dev mode: running from workspace root with apps/server/dist
     join(__dirname, '..', '..', 'apps', 'web', 'dist', 'index.html'),
   ];
 

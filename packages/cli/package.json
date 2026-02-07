@@ -1,0 +1,39 @@
+{
+  "name": "clicast",
+  "version": "1.0.0",
+  "description": "Web interface for AI CLI Commands from mobile/tablet devices",
+  "type": "module",
+  "bin": {
+    "clicast": "bin/clicast"
+  },
+  "files": [
+    "dist/",
+    "bin/",
+    "package.json"
+  ],
+  "scripts": {
+    "build": "bun scripts/build.ts",
+    "start": "bun dist/index.js"
+  },
+  "dependencies": {
+    "bun-pty": "^0.4.8",
+    "hono": "^4.6.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "bun-types": "*"
+  },
+  "keywords": [
+    "cli",
+    "terminal",
+    "ai",
+    "remote",
+    "websocket"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/qxc/clicast"
+  }
+}

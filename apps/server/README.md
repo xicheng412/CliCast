@@ -9,7 +9,7 @@ src/
 ├── api/
 │   ├── config.ts       # GET/PUT /api/config
 │   ├── dirs.ts         # GET /api/dirs
-│   └── sessions.ts     # Session CRUD + SSE stream
+│   └── sessions.ts     # Session CRUD + WebSocket stream
 ├── services/
 │   ├── aiCommand.ts    # AI CLI execution
 │   ├── config.ts       # Config file operations
@@ -24,7 +24,7 @@ src/
 |--------|----------|-------------|
 | POST | `/api/sessions` | Create session |
 | GET | `/api/sessions/:id` | Get session info |
-| GET | `/api/sessions/:id/stream` | SSE output stream |
+| GET | `/api/sessions/:id/ws` | Get WebSocket URL for session |
 | POST | `/api/sessions/:id/message` | Send message |
 | DELETE | `/api/sessions/:id` | Delete session |
 | GET | `/api/config` | Get config |
@@ -40,4 +40,4 @@ src/
 
 ## Environment
 
-Set `SSE_DEBUG=1` to enable SSE debugging.
+No special environment variables for WebSocket.

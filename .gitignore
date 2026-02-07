@@ -50,3 +50,7 @@ temp/
 *.pid
 *.seed
 *.pid.lock
+
+# NPM package tarballs
+*.tgz
+*.tar.gz
