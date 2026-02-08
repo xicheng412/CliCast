@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { createSession, getSessions, getSession, deleteSession, terminateSession } from '../services/terminal.js';
-import { getConfig } from '../services/config.js';
+import { getConfig, getAiCommandById, getEnabledAiCommands } from '../services/config.js';
 import { validatePath, listDir } from '../services/file.js';
 import { authMiddleware } from '../services/auth.js';
 import type { ApiResponse, Session, CreateSessionRequest } from '@clicast/types';
@@ -61,8 +61,29 @@ app.post('/', async (c) => {
       return c.json(response, 400);
     }
 
+    // Get the AI command to use
+    let aiCommand: string | undefined;
+    if (body.aiCommandId) {
+      // User explicitly selected a command - look it up
+      const command = getAiCommandById(body.aiCommandId);
+      if (!command) {
+        const response: ApiResponse<Session> = {
+          success: false,
+          error: 'AI command not found',
+        };
+        return c.json(response, 400);
+      }
+      aiCommand = command.cmd;
+    } else {
+      // No command specified - use first enabled command
+      const enabledCommands = getEnabledAiCommands();
+      if (enabledCommands.length > 0) {
+        aiCommand = enabledCommands[0].cmd;
+      }
+    }
+
     // Create session (PTY will start when WebSocket sends 'init')
-    const session = createSession(body.path);
+    const session = createSession(body.path, aiCommand);
 
     // Build WebSocket URL based on the current request's origin
     const url = new URL(c.req.url);

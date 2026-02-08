@@ -1,45 +1,15 @@
 <script lang="ts">
-  import { dirStore, sessionsStore, recentPathsStore } from '../stores/index.js';
+  import { dirStore, sessionsStore, recentPathsStore, configStore } from '../stores/index.js';
   import { api } from '../stores/api.js';
   import { router } from '../router.js';
+  import type { AiCommand } from '@clicast/types';
 
   let selectedPath = $state<string | null>(null);
   let isCreatingSession = $state(false);
+  let showCommandDropdown = $state(false);
 
-  function waitForSessionRunning(wsUrl: string, sessionId: string): Promise<void> {
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        console.warn('Session startup timeout, navigating anyway...');
-        resolve();
-      }, 10000);
-
-      const ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        console.log('Connected to session WebSocket');
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'status' && data.data?.status === 'running') {
-            console.log('Session is running, navigating...');
-            clearTimeout(timeout);
-            ws.close();
-            resolve();
-          }
-        } catch {
-          // Ignore parse errors
-        }
-      };
-
-      ws.onerror = () => {
-        console.warn('WebSocket error, navigating anyway...');
-        clearTimeout(timeout);
-        resolve();
-      };
-    });
-  }
+  // Get enabled commands for dropdown (from configStore)
+  let enabledCommands = $derived($configStore?.aiCommands.filter((c) => c.enabled) || []);
 
   // Access store directly with $ prefix in the script
   function getCurrentDir() {
@@ -83,25 +53,30 @@
     recentPathsStore.removePath(path);
   }
 
-  async function handleLoadDirectory() {
+  async function handleLoadDirectory(aiCommandId?: string) {
     const path = $dirStore.currentPath || '/';
     isCreatingSession = true;
+    showCommandDropdown = false;
     try {
-      const session = await sessionsStore.create(path);
+      const session = await sessionsStore.create(path, aiCommandId);
       if (session) {
         console.log('Session created:', session.id);
         recentPathsStore.addPath(path);
 
-        // Wait for PTY to start and connect to WebSocket
-        const wsUrl = session.wsUrl;
-        await waitForSessionRunning(wsUrl, session.id);
-
-        // Navigate to session page
+        // Navigate to session page - WebSocket will connect there
         router.navigate('/session', { sessionId: session.id });
       }
     } finally {
       isCreatingSession = false;
     }
+  }
+
+  async function handleLoadWithCommand(cmd: AiCommand) {
+    await handleLoadDirectory(cmd.id);
+  }
+
+  function toggleDropdown() {
+    showCommandDropdown = !showCommandDropdown;
   }
 
   async function handleGoHome() {
@@ -128,13 +103,24 @@
       <button onclick={handleGoHome} class="btn-secondary">Home</button>
     </div>
     <div class="toolbar-right">
-      <button
-        onclick={handleLoadDirectory}
-        class="btn-primary"
-        disabled={!$dirStore.currentPath || isCreatingSession}
-      >
-        {isCreatingSession ? 'Loading...' : 'Load This Directory'}
-      </button>
+      <div class="dropdown">
+        <button
+          onclick={toggleDropdown}
+          class="btn-primary"
+          disabled={!$dirStore.currentPath || isCreatingSession}
+        >
+          {isCreatingSession ? 'Loading...' : 'Load This Directory ▼'}
+        </button>
+        {#if showCommandDropdown && enabledCommands.length > 0}
+          <div class="dropdown-menu">
+            {#each enabledCommands as cmd}
+              <button onclick={() => handleLoadWithCommand(cmd)} class="dropdown-item">
+                {cmd.name}
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
     </div>
   </div>
 
@@ -427,5 +413,48 @@
 
   .icon {
     font-size: 16px;
+  }
+
+  .dropdown {
+    position: relative;
+    display: inline-block;
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    min-width: 160px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .dropdown-item {
+    background: none;
+    border: none;
+    padding: 10px 16px;
+    text-align: left;
+    cursor: pointer;
+    font-size: 14px;
+    color: #1e293b;
+    transition: background-color 0.15s;
+  }
+
+  .dropdown-item:hover {
+    background: #f1f5f9;
+  }
+
+  .dropdown-item:first-child {
+    border-radius: 6px 6px 0 0;
+  }
+
+  .dropdown-item:last-child {
+    border-radius: 0 0 6px 6px;
   }
 </style>

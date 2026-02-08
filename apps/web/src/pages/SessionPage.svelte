@@ -128,7 +128,9 @@
   // Handle deep-link: if sessionId is provided but not active, try to activate it
   onMount(async () => {
     if (sessionId && currentSessionsState.activeSessionId !== sessionId) {
-      const wsUrl = await sessionsStore.getWebSocketUrl(sessionId);
+      // Construct WebSocket URL using browser's location.host for correct LAN access
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${location.host}/ws?sessionId=${sessionId}`;
       sessionsStore.setActiveSession(sessionId, wsUrl);
     }
 

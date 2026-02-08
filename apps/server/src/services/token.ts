@@ -1,40 +1,60 @@
-import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
+import { existsSync, readFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
-import { createHash } from 'crypto';
+import {
+  loadConfigFromFile,
+  saveConfigToFile,
+  hashToken,
+  configFileExists,
+  CONFIG_FILE,
+  CONFIG_VERSION,
+} from './config-file.js';
 
-// Token file location: project directory .clicast-token (or custom via TOKEN_FILE env)
-const TOKEN_FILE = process.env.TOKEN_FILE || join(process.cwd(), '.clicast-token');
+// Legacy token file path for migration
+const LEGACY_TOKEN_FILE = join(process.cwd(), '.clicast-token');
 
 /**
- * Hash a token using SHA-256
- */
-export function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
-}
-
-/**
- * Check if token file exists
+ * Check if token file (either config or legacy) exists
  */
 export function tokenFileExists(): boolean {
-  return existsSync(TOKEN_FILE);
+  // Check new config file first
+  if (configFileExists()) {
+    const config = loadConfigFromFile();
+    if (config?.auth?.tokenHash) {
+      return true;
+    }
+  }
+  // Check legacy file
+  return existsSync(LEGACY_TOKEN_FILE);
 }
 
 /**
- * Get stored token hash (if exists)
+ * Get stored token hash from config file
+ * Also handles migration from legacy token file
  */
 export function getStoredTokenHash(): string | null {
+  // Try to migrate legacy token file first
+  migrateLegacyTokenFile();
+
+  // Load from config file
+  const config = loadConfigFromFile();
+  if (config?.auth?.tokenHash) {
+    return config.auth.tokenHash;
+  }
+
+  // Fallback: check legacy file (for systems not yet migrated)
   try {
-    if (existsSync(TOKEN_FILE)) {
-      return readFileSync(TOKEN_FILE, 'utf-8').trim();
+    if (existsSync(LEGACY_TOKEN_FILE)) {
+      return readFileSync(LEGACY_TOKEN_FILE, 'utf-8').trim();
     }
   } catch {
     // Ignore errors
   }
+
   return null;
 }
 
 /**
- * Create or update the token
+ * Create or update the token in config file
  * Returns true if successful, false if token already exists (use updateToken instead)
  */
 export function createToken(token: string): boolean {
@@ -44,8 +64,17 @@ export function createToken(token: string): boolean {
   }
 
   const hash = hashToken(token);
-  writeFileSync(TOKEN_FILE, hash, 'utf-8');
-  console.log(`Token created at ${TOKEN_FILE}`);
+
+  const config = loadConfigFromFile() || { version: CONFIG_VERSION };
+  saveConfigToFile({
+    ...config,
+    version: CONFIG_VERSION,
+    auth: {
+      tokenHash: hash,
+    },
+  });
+
+  console.log(`Token created in ${CONFIG_FILE}`);
   return true;
 }
 
@@ -78,31 +107,83 @@ export function updateToken(currentToken: string, newToken: string): boolean {
   }
 
   const newHash = hashToken(newToken);
-  writeFileSync(TOKEN_FILE, newHash, 'utf-8');
-  console.log(`Token updated at ${TOKEN_FILE}`);
+
+  const config = loadConfigFromFile() || { version: CONFIG_VERSION };
+  saveConfigToFile({
+    ...config,
+    version: CONFIG_VERSION,
+    auth: {
+      tokenHash: newHash,
+    },
+  });
+
+  console.log(`Token updated in ${CONFIG_FILE}`);
   return true;
 }
 
 /**
- * Delete the token file
+ * Delete the token from config file and legacy file
  * Returns true if deleted, false if didn't exist
  */
 export function deleteToken(): boolean {
+  let deleted = false;
+
+  // Delete from config file
   try {
-    if (existsSync(TOKEN_FILE)) {
-      unlinkSync(TOKEN_FILE);
-      console.log(`Token deleted from ${TOKEN_FILE}`);
-      return true;
+    const config = loadConfigFromFile();
+    if (config) {
+      if (config.auth) {
+        delete config.auth;
+        saveConfigToFile(config);
+        console.log(`Token deleted from ${CONFIG_FILE}`);
+        deleted = true;
+      }
     }
   } catch (error) {
-    console.error(`Failed to delete token: ${error}`);
+    console.error(`Failed to delete token from config: ${error}`);
   }
-  return false;
+
+  // Also delete legacy file if it exists
+  try {
+    if (existsSync(LEGACY_TOKEN_FILE)) {
+      unlinkSync(LEGACY_TOKEN_FILE);
+      console.log(`Legacy token file deleted from ${LEGACY_TOKEN_FILE}`);
+      deleted = true;
+    }
+  } catch (error) {
+    console.error(`Failed to delete legacy token file: ${error}`);
+  }
+
+  return deleted;
 }
 
 /**
- * Get the token file path (for displaying to user)
+ * Get the config file path (for displaying to user)
  */
 export function getTokenFilePath(): string {
-  return TOKEN_FILE;
+  return CONFIG_FILE;
+}
+
+/**
+ * Migrate from old .clicast-token file to config.json
+ * Called internally by getStoredTokenHash
+ */
+function migrateLegacyTokenFile(): boolean {
+  if (existsSync(LEGACY_TOKEN_FILE) && !configFileExists()) {
+    try {
+      const tokenHash = readFileSync(LEGACY_TOKEN_FILE, 'utf-8').trim();
+      const config: typeof loadConfigFromFile extends () => infer T ? T : never = {
+        version: CONFIG_VERSION,
+        auth: {
+          tokenHash,
+        },
+      };
+      saveConfigToFile(config);
+      console.log(`Migrated token from ${LEGACY_TOKEN_FILE} to ${CONFIG_FILE}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to migrate legacy token file:', error);
+    }
+  }
+  return false;
 }

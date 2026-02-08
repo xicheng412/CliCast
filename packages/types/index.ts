@@ -1,12 +1,28 @@
+// AI Command types
+export interface AiCommand {
+  id: string;
+  name: string;
+  cmd: string;
+  enabled: boolean;
+}
+
+export interface AiCommandUpdate {
+  id?: string;
+  name?: string;
+  cmd?: string;
+  enabled?: boolean;
+  action?: 'add' | 'remove' | 'moveUp' | 'moveDown';
+}
+
 // Configuration types
 export interface Config {
-  aiCommand: string;
+  aiCommands: AiCommand[];
   allowedDirs: string[];
   port: number;
 }
 
 export interface ConfigUpdate {
-  aiCommand?: string;
+  aiCommands?: AiCommand[];
   allowedDirs?: string[];
   port?: number;
 }
@@ -48,6 +64,7 @@ export interface Session {
 
 export interface CreateSessionRequest {
   path: string;
+  aiCommandId?: string;
 }
 
 export interface SessionResponse {

@@ -1,6 +1,5 @@
 import { spawn, type IPty } from 'bun-pty';
 import { randomUUID } from 'crypto';
-import { getConfig } from './config.js';
 import type { Session, SessionStatus } from '@clicast/types';
 
 interface PtySession extends Session {
@@ -64,8 +63,7 @@ export function sessionExists(sessionId: string): boolean {
 }
 
 // Create a session record without starting PTY (deferred start)
-export function createSession(path: string): Session {
-  const config = getConfig();
+export function createSession(path: string, aiCommand?: string): Session {
   const id = randomUUID();
   const now = Date.now();
 
@@ -75,7 +73,7 @@ export function createSession(path: string): Session {
     status: 'created', // Will become 'running' when PTY starts
     createdAt: now,
     lastActivity: now,
-    aiCommand: config.aiCommand,
+    aiCommand: aiCommand || 'claude',
   };
 
   sessions.set(id, session);

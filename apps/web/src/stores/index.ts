@@ -1,7 +1,16 @@
-import { writable, type Writable } from 'svelte/store';
-import type { Config, Breadcrumb, Session, FileEntry } from '@clicast/types';
+import { writable, type Writable, get } from 'svelte/store';
+import type { Config, Breadcrumb, Session, FileEntry, AiCommand } from '@clicast/types';
 import { api, type TerminalSession } from './api';
 import { authStore } from './auth';
+
+// Use browser crypto API for UUID generation
+const generateUUID = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
 
 // Recent paths store
 function createRecentPathsStore() {
@@ -53,7 +62,7 @@ function createRecentPathsStore() {
 
 export const recentPathsStore = createRecentPathsStore();
 
-// Config store
+// Config store with integrated AI Commands management
 function createConfigStore() {
   const { subscribe, set, update }: Writable<Config | null> = writable(null);
 
@@ -71,10 +80,63 @@ function createConfigStore() {
       try {
         const config = await api.updateConfig(updates);
         set(config);
+        return config;
       } catch (error) {
         console.error('Failed to update config:', error);
         throw error;
       }
+    },
+    // AI Commands operations - integrated into config store
+    async addAiCommand(cmd: Omit<AiCommand, 'id'>) {
+      const current = get({ subscribe });
+      if (!current) throw new Error('Config not loaded');
+
+      const newCommand = {
+        ...cmd,
+        id: generateUUID(),
+      } as AiCommand;
+
+      const newCommands = [...current.aiCommands, newCommand];
+      return this.update({ aiCommands: newCommands });
+    },
+    async updateAiCommand(id: string, updates: Partial<AiCommand>) {
+      const current = get({ subscribe });
+      if (!current) throw new Error('Config not loaded');
+
+      const newCommands = current.aiCommands.map((c) =>
+        c.id === id ? { ...c, ...updates } : c
+      );
+      return this.update({ aiCommands: newCommands });
+    },
+    async deleteAiCommand(id: string) {
+      const current = get({ subscribe });
+      if (!current) throw new Error('Config not loaded');
+
+      const newCommands = current.aiCommands.filter((c) => c.id !== id);
+      return this.update({ aiCommands: newCommands });
+    },
+    async reorderAiCommands(commands: AiCommand[]) {
+      return this.update({ aiCommands: commands });
+    },
+    moveUp(id: string) {
+      update((config) => {
+        if (!config) return config;
+        const index = config.aiCommands.findIndex((c) => c.id === id);
+        if (index <= 0) return config;
+        const newCommands = [...config.aiCommands];
+        [newCommands[index - 1], newCommands[index]] = [newCommands[index], newCommands[index - 1]];
+        return { ...config, aiCommands: newCommands };
+      });
+    },
+    moveDown(id: string) {
+      update((config) => {
+        if (!config) return config;
+        const index = config.aiCommands.findIndex((c) => c.id === id);
+        if (index < 0 || index >= config.aiCommands.length - 1) return config;
+        const newCommands = [...config.aiCommands];
+        [newCommands[index], newCommands[index + 1]] = [newCommands[index + 1], newCommands[index]];
+        return { ...config, aiCommands: newCommands };
+      });
     },
   };
 }
@@ -182,20 +244,25 @@ function createSessionsStore() {
         }));
       }
     },
-    async create(path: string): Promise<TerminalSession | null> {
+    async create(path: string, aiCommandId?: string): Promise<TerminalSession | null> {
       update((state) => ({ ...state, loading: true, error: null }));
 
       try {
-        const session = await api.createSession(path);
+        const session = await api.createSession(path, aiCommandId);
+
+        // Construct WebSocket URL using browser's location.host for correct LAN access
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${location.host}/ws?sessionId=${session.id}`;
+
         update((state) => ({
           ...state,
-          sessions: [...state.sessions, session],
+          sessions: [...state.sessions, { ...session, wsUrl }],
           activeSessionId: session.id,
-          activeSessionWsUrl: session.wsUrl,
+          activeSessionWsUrl: wsUrl,
           loading: false,
           error: null,
         }));
-        return session;
+        return { ...session, wsUrl };
       } catch (error) {
         update((state) => ({
           ...state,
@@ -237,9 +304,6 @@ function createSessionsStore() {
         ...state,
         sessions: state.sessions.map((s) => (s.id === session.id ? session : s)),
       }));
-    },
-    async getWebSocketUrl(sessionId: string): Promise<string> {
-      return api.getWebSocketUrl(sessionId);
     },
   };
 }

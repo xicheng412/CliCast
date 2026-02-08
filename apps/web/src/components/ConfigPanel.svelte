@@ -1,9 +1,12 @@
 <script lang="ts">
-  import { configStore, authStore } from '../stores/index.js';
+  import { authStore } from '../stores/index.js';
   import { router } from '../router.js';
-  import type { Config } from '@clicast/types';
+  import { api } from '../stores/api.js';
+  import type { Config, AiCommand } from '@clicast/types';
+  import { onMount } from 'svelte';
 
   let localConfig = $state<Partial<Config>>({});
+  let isLoading = $state(false);
   let isSaving = $state(false);
   let saveError = $state<string | null>(null);
   let saveSuccess = $state(false);
@@ -17,23 +20,37 @@
   let tokenSuccess = $state(false);
   let isChangingToken = $state(false);
 
-  // Reactive store access with $ prefix
-  let currentConfig = $derived($configStore);
+  // AI Commands management state
+  let newCommandName = $state('');
+  let newCommandCmd = $state('');
+  let editingCommand = $state<string | null>(null);
+  let editCommandName = $state('');
+  let editCommandCmd = $state('');
 
-  // Load config on mount
-  $effect(() => {
-    if (currentConfig) {
-      localConfig = { ...currentConfig };
-    } else {
-      configStore.load();
-    }
-  });
+  // Use browser crypto API for UUID generation
+  function generateUUID(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
 
-  // Sync with store
-  $effect(() => {
-    if (currentConfig) {
-      localConfig = { ...currentConfig };
+  async function loadConfig() {
+    isLoading = true;
+    saveError = null;
+    try {
+      const config = await api.getConfig();
+      localConfig = { ...config };
+    } catch (error) {
+      saveError = error instanceof Error ? error.message : 'Failed to load config';
+    } finally {
+      isLoading = false;
     }
+  }
+
+  onMount(() => {
+    loadConfig();
   });
 
   async function handleSave() {
@@ -42,7 +59,8 @@
     saveSuccess = false;
 
     try {
-      await configStore.update(localConfig);
+      const savedConfig = await api.updateConfig(localConfig);
+      localConfig = { ...savedConfig };
       saveSuccess = true;
       setTimeout(() => (saveSuccess = false), 3000);
     } catch (error) {
@@ -52,11 +70,9 @@
     }
   }
 
-  function handleReset() {
-    if (currentConfig) {
-      localConfig = { ...currentConfig };
-    }
+  async function handleReset() {
     saveError = null;
+    await loadConfig();
   }
 
   function addAllowedDir() {
@@ -75,6 +91,73 @@
     if (localConfig.allowedDirs) {
       localConfig.allowedDirs[index] = value;
     }
+  }
+
+  // Local AI Commands management functions
+  function addCommand() {
+    if (!newCommandName.trim() || !newCommandCmd.trim()) return;
+
+    const newCmd: AiCommand = {
+      id: generateUUID(),
+      name: newCommandName.trim(),
+      cmd: newCommandCmd.trim(),
+      enabled: true,
+    };
+
+    localConfig.aiCommands = [...(localConfig.aiCommands || []), newCmd];
+    newCommandName = '';
+    newCommandCmd = '';
+  }
+
+  function deleteCommand(id: string) {
+    localConfig.aiCommands = localConfig.aiCommands?.filter((c) => c.id !== id) || [];
+  }
+
+  function toggleEnabled(id: string, enabled: boolean) {
+    localConfig.aiCommands = localConfig.aiCommands?.map((c) =>
+      c.id === id ? { ...c, enabled } : c
+    ) || [];
+  }
+
+  function moveUp(id: string) {
+    const commands = localConfig.aiCommands || [];
+    const index = commands.findIndex((c) => c.id === id);
+    if (index <= 0) return;
+
+    const newCommands = [...commands];
+    [newCommands[index - 1], newCommands[index]] = [newCommands[index], newCommands[index - 1]];
+    localConfig.aiCommands = newCommands;
+  }
+
+  function moveDown(id: string) {
+    const commands = localConfig.aiCommands || [];
+    const index = commands.findIndex((c) => c.id === id);
+    if (index < 0 || index >= commands.length - 1) return;
+
+    const newCommands = [...commands];
+    [newCommands[index], newCommands[index + 1]] = [newCommands[index + 1], newCommands[index]];
+    localConfig.aiCommands = newCommands;
+  }
+
+  function startEditing(cmd: AiCommand) {
+    editingCommand = cmd.id;
+    editCommandName = cmd.name;
+    editCommandCmd = cmd.cmd;
+  }
+
+  function cancelEditing() {
+    editingCommand = null;
+    editCommandName = '';
+    editCommandCmd = '';
+  }
+
+  function saveEditing(id: string) {
+    if (!editCommandName.trim() || !editCommandCmd.trim()) return;
+
+    localConfig.aiCommands = localConfig.aiCommands?.map((c) =>
+      c.id === id ? { ...c, name: editCommandName.trim(), cmd: editCommandCmd.trim() } : c
+    ) || [];
+    cancelEditing();
   }
 
   async function handleChangeToken(e: Event) {
@@ -123,19 +206,6 @@
   <h2>Configuration</h2>
 
   <div class="form-section">
-    <label for="aiCommand">AI CLI Command</label>
-    <input
-      id="aiCommand"
-      type="text"
-      bind:value={localConfig.aiCommand}
-      placeholder="claude"
-    />
-    <p class="help">
-      The command used to start the AI CLI. Default is "claude".
-    </p>
-  </div>
-
-  <div class="form-section">
     <span class="label-text">Allowed Directories</span>
     <p class="help">
       Restrict access to these directories (leave empty for no restriction).
@@ -162,6 +232,102 @@
     <button onclick={addAllowedDir} class="btn-secondary">
       Add Directory
     </button>
+  </div>
+
+  <div class="form-section">
+    <span class="label-text">AI Commands</span>
+    <p class="help">
+      Configure AI CLI commands. Use "claude" as default. Commands support --workdir option.
+    </p>
+
+    {#if (localConfig.aiCommands || []).length > 0}
+      <div class="commands-list">
+        {#each localConfig.aiCommands || [] as cmd, i (cmd.id)}
+          <div class="command-row" class:disabled={!cmd.enabled}>
+            {#if editingCommand === cmd.id}
+              <div class="edit-form">
+                <input
+                  type="text"
+                  bind:value={editCommandName}
+                  placeholder="Command name"
+                  class="name-input"
+                />
+                <input
+                  type="text"
+                  bind:value={editCommandCmd}
+                  placeholder="claude"
+                  class="cmd-input"
+                />
+                <div class="edit-actions">
+                  <button onclick={() => saveEditing(cmd.id)} class="btn-primary btn-sm">
+                    Save
+                  </button>
+                  <button onclick={cancelEditing} class="btn-secondary btn-sm">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            {:else}
+              <div class="command-info">
+                <span class="command-name">{cmd.name}</span>
+                <code class="command-cmd">{cmd.cmd}</code>
+              </div>
+              <div class="command-actions">
+                <button
+                  onclick={() => toggleEnabled(cmd.id, !cmd.enabled)}
+                  class="btn-icon"
+                  title={cmd.enabled ? 'Disable' : 'Enable'}
+                >
+                  {cmd.enabled ? '◉' : '○'}
+                </button>
+                <button
+                  onclick={() => moveUp(cmd.id)}
+                  disabled={i === 0}
+                  class="btn-icon"
+                  title="Move up"
+                >
+                  ↑
+                </button>
+                <button
+                  onclick={() => moveDown(cmd.id)}
+                  disabled={i === (localConfig.aiCommands || []).length - 1}
+                  class="btn-icon"
+                  title="Move down"
+                >
+                  ↓
+                </button>
+                <button onclick={() => startEditing(cmd)} class="btn-icon" title="Edit">
+                  ✎
+                </button>
+                <button onclick={() => deleteCommand(cmd.id)} class="btn-icon btn-danger" title="Delete">
+                  ×
+                </button>
+              </div>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {:else}
+      <p class="empty-text">No commands configured</p>
+    {/if}
+
+    <div class="add-command-form">
+      <input
+        type="text"
+        bind:value={newCommandName}
+        placeholder="Command name"
+        class="name-input"
+      />
+      <input
+        type="text"
+        bind:value={newCommandCmd}
+        placeholder="claude"
+        class="cmd-input"
+      />
+      <button onclick={addCommand} class="btn-secondary" disabled={!newCommandName.trim() || !newCommandCmd.trim()}>
+        Add Command
+      </button>
+    </div>
   </div>
 
   <div class="form-section">
@@ -415,5 +581,133 @@
   .btn-danger:disabled {
     background: #fca5a5;
     cursor: not-allowed;
+  }
+
+  .commands-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .command-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    transition: opacity 0.2s;
+  }
+
+  .command-row.disabled {
+    opacity: 0.6;
+  }
+
+  .command-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .command-name {
+    font-weight: 500;
+    color: #1e293b;
+    white-space: nowrap;
+  }
+
+  .command-cmd {
+    font-size: 12px;
+    background: #e2e8f0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: #475569;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .command-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .btn-icon {
+    background: transparent;
+    border: none;
+    padding: 6px 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #64748b;
+    border-radius: 4px;
+    transition: all 0.15s;
+  }
+
+  .btn-icon:hover:not(:disabled) {
+    background: #e2e8f0;
+    color: #1e293b;
+  }
+
+  .btn-icon:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-icon.btn-danger:hover {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+
+  .edit-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+
+  .edit-form .name-input {
+    width: 120px;
+  }
+
+  .edit-form .cmd-input {
+    flex: 1;
+  }
+
+  .edit-actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  .add-command-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .name-input {
+    width: 140px;
+  }
+
+  .cmd-input {
+    flex: 1;
+  }
+
+  .add-command-form input {
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+
+  .add-command-form input:focus {
+    outline: none;
+    border-color: #6366f1;
   }
 </style>

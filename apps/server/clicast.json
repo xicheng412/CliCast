@@ -1,0 +1,22 @@
+{
+  "version": "1.0.0",
+  "auth": {
+    "tokenHash": "932f3c1b56257ce8539ac269d7aab42550dacf8818d075f0bdf1990562aae3ef"
+  },
+  "aiCommands": [
+    {
+      "id": "56130027-81b4-4d13-b3b8-31b49108f455",
+      "name": "claude",
+      "cmd": "ccr code",
+      "enabled": true
+    },
+    {
+      "id": "d33966a1-546a-4e74-ae06-9ef51ce7a8d4",
+      "name": "codex",
+      "cmd": "cx",
+      "enabled": true
+    }
+  ],
+  "allowedDirs": [],
+  "port": 3456
+}

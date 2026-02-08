@@ -76,10 +76,10 @@ export const api = {
     return response.data;
   },
 
-  async createSession(path: string): Promise<TerminalSession> {
+  async createSession(path: string, aiCommandId?: string): Promise<TerminalSession> {
     const response = await fetchJson<{ success: true; data: TerminalSession }>(`${API_BASE}/sessions`, {
       method: 'POST',
-      body: JSON.stringify({ path }),
+      body: JSON.stringify({ path, aiCommandId }),
     });
     return response.data;
   },
@@ -95,13 +95,6 @@ export const api = {
       method: 'POST',
     });
     return response.data;
-  },
-
-  async getWebSocketUrl(sessionId: string): Promise<string> {
-    const response = await fetchJson<{ success: true; data: { wsUrl: string; sessionId: string } }>(
-      `${API_BASE}/sessions/${sessionId}/ws`
-    );
-    return response.data.wsUrl;
   },
 
   // Auth

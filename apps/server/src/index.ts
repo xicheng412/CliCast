@@ -160,7 +160,7 @@ app.get('/*', (c) => {
   <div class="status">
     <strong>Status:</strong> Server is running<br>
     <strong>Configuration:</strong><br>
-    - AI Command: <code>${config.aiCommand}</code><br>
+    - AI Commands: <code>${config.aiCommands.map(c => c.enabled ? c.name : `${c.name} (disabled)`).join(', ')}</code><br>
     - Allowed Directories: ${config.allowedDirs.length > 0 ? config.allowedDirs.join(', ') : 'All directories'}
   </div>
   <div class="auth-status">

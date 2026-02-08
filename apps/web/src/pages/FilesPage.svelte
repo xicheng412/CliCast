@@ -31,7 +31,9 @@
   });
 
   async function handleSetActiveSession(id: string) {
-    const wsUrl = await sessionsStore.getWebSocketUrl(id);
+    // Construct WebSocket URL using browser's location.host for correct LAN access
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${location.host}/ws?sessionId=${id}`;
     sessionsStore.setActiveSession(id, wsUrl);
     router.navigate('/session', { sessionId: id });
   }
