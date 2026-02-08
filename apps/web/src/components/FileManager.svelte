@@ -55,10 +55,12 @@
 
   async function handleLoadDirectory(aiCommandId?: string) {
     const path = $dirStore.currentPath || '/';
+    // Use first enabled command as default if no command ID provided
+    const commandId = aiCommandId ?? (enabledCommands[0]?.id ?? undefined);
     isCreatingSession = true;
     showCommandDropdown = false;
     try {
-      const session = await sessionsStore.create(path, aiCommandId);
+      const session = await sessionsStore.create(path, commandId);
       if (session) {
         console.log('Session created:', session.id);
         recentPathsStore.addPath(path);
@@ -103,21 +105,35 @@
       <button onclick={handleGoHome} class="btn-secondary">Home</button>
     </div>
     <div class="toolbar-right">
-      <div class="dropdown">
+      <div class="command-selector">
+        <!-- 主按钮：使用默认命令加载 -->
         <button
-          onclick={toggleDropdown}
+          onclick={() => handleLoadDirectory()}
           class="btn-primary"
-          disabled={!$dirStore.currentPath || isCreatingSession}
+          disabled={!$dirStore.currentPath || isCreatingSession || enabledCommands.length === 0}
         >
-          {isCreatingSession ? 'Loading...' : 'Load This Directory ▼'}
+          {isCreatingSession ? 'Loading...' : 'Load This Directory'}
         </button>
-        {#if showCommandDropdown && enabledCommands.length > 0}
-          <div class="dropdown-menu">
-            {#each enabledCommands as cmd}
-              <button onclick={() => handleLoadWithCommand(cmd)} class="dropdown-item">
-                {cmd.name}
-              </button>
-            {/each}
+
+        <!-- 下拉箭头按钮：多命令时显示 -->
+        {#if enabledCommands.length > 1}
+          <div class="dropdown">
+            <button
+              onclick={toggleDropdown}
+              class="btn-primary dropdown-toggle"
+              disabled={!$dirStore.currentPath || isCreatingSession}
+            >
+              ▼
+            </button>
+            {#if showCommandDropdown}
+              <div class="dropdown-menu">
+                {#each enabledCommands as cmd}
+                  <button onclick={() => handleLoadWithCommand(cmd)} class="dropdown-item">
+                    {cmd.name}
+                  </button>
+                {/each}
+              </div>
+            {/if}
           </div>
         {/if}
       </div>
@@ -415,9 +431,35 @@
     font-size: 16px;
   }
 
+  .command-selector {
+    display: inline-flex;
+    gap: 0;
+  }
+
+  .command-selector > .btn-primary {
+    border-radius: 6px 0 0 6px;
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
   .dropdown {
     position: relative;
     display: inline-block;
+  }
+
+  .dropdown-toggle {
+    padding: 8px 10px;
+    border-radius: 0 6px 6px 0;
+    background-color: #5a5fcf;
+    border: none;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .dropdown-toggle:hover:not(:disabled) {
+    background-color: #4f46e5;
+  }
+
+  .dropdown-toggle:active {
+    background-color: #4338ca;
   }
 
   .dropdown-menu {
@@ -425,7 +467,7 @@
     top: 100%;
     right: 0;
     margin-top: 4px;
-    min-width: 160px;
+    min-width: 180px;
     background: white;
     border: 1px solid #e2e8f0;
     border-radius: 6px;

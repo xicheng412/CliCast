@@ -12,7 +12,10 @@
 </script>
 
 <header class="header">
-  <h1>Claude Code Online</h1>
+  <h1 class="logo">
+    <span class="logo-icon">&gt;_</span>
+    <span class="logo-text">CliCast</span>
+  </h1>
   <nav class="nav-tabs">
     <button
       class:active={currentPath === '/files'}
@@ -46,10 +49,37 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   }
 
-  .header h1 {
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .logo-icon {
+    color: #6366f1;
     font-size: 18px;
-    font-weight: 600;
+    line-height: 1;
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+    font-weight: bold;
+    background: #eef2ff;
+    padding: 4px 6px;
+    border-radius: 4px;
+  }
+
+  .logo-text {
     color: #1e293b;
+    letter-spacing: -1px;
+  }
+
+  @keyframes pulse-slow {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
   }
 
   .nav-tabs {
